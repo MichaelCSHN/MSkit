@@ -17,6 +17,7 @@
 
 - [ ] JetPack 6.2.1 + CUDA 12.6.10 启动验证。
 - [ ] Orin Nano/NX 从 NVMe 启动；不得写板载 64GB eMMC。
+- [ ] RTK/GNSS + IMU 定位融合：静态 1h 水平 StdDev <2cm、垂直 <3cm；多摄像头同步偏差 <5ms（K4，P0，OP-12）。
 - [ ] LoRa 仅验收位置、状态、告警、短文本；文件传输走 Wi-Fi/USB/以太网。
 - [ ] LoRa 模块和天线按目标市场频段采购，不写“868/915MHz 通用”。
 - [ ] LTE 模块按目标市场选型，不默认 EC25-EU 覆盖所有地区。
@@ -25,7 +26,7 @@
 
 ## Phase 3: 软件与 AI
 
-- [ ] Lite / Standard / Pro Profile 分层部署验证。
+- [ ] Lite / Standard / Pro 三档 Profile 分层部署验证。
 - [ ] 模型推理 FPS：640×640, batch=1, INT8, TensorRT/DeepStream，YOLOv8n ≥50 FPS。
 - [ ] 端到端视频 FPS：1080p 输入，含解码、resize、推理、跟踪、叠加、WebSocket 输出，单路 ≥25 FPS。
 - [ ] 白天检测 mAP@0.5 ≥0.85，冻结测试集 ≥5,000 张。

@@ -44,17 +44,21 @@ MSkit 在一台加固便携箱内集成高算力边缘 AI、厘米级 RTK 定位
 
 | 文档 | 说明 |
 |------|------|
-| [MSkit_v1.3.2_Spec.md](docs/MSkit_v1.3.2_Spec.md) | **v1.3.2 主规格文档**：当前权威规格，覆盖需求、硬件、软件、接口、测试、预算、风险、验收 |
+| [MSkit_v1.3.2_Spec.md](docs/MSkit_v1.3.2_Spec.md) | **v1.3.2 主规格（变更集/覆盖层）**：承载最新口径、命名、数值与合规表述；工程明细仍见 v1.3 明细规格 |
 | [MSkit_v1.3.2_Development_Plan.md](docs/MSkit_v1.3.2_Development_Plan.md) | **v1.3.2 同步开发计划**：统一 AI 测量口径、无人机数据接入边界、Class A/B、加密导出验收、M16–M18 |
 | [MSkit_v1.3.2_BOM_Cost_Table.md](docs/MSkit_v1.3.2_BOM_Cost_Table.md) | **v1.3.2 BOM 同步表**：地区化通信 SKU、电池化学体系分层、Pilot Batch 经济性 |
 | [MSkit_v1.3.2_Development_Checklist.md](docs/MSkit_v1.3.2_Development_Checklist.md) | **v1.3.2 同步 Checklist**：修正 LoRa、EMC、环境测试、无人机、加密导出与授权检查项 |
 | [MSkit_v1.3.2_Outsourcing_Modules.md](docs/MSkit_v1.3.2_Outsourcing_Modules.md) | **v1.3.2 外协分包方案**：并行外协模块、内部保留事项、接口治理、合同与验收建议 |
-| [历史 v1.3 规格](docs/MSkit_v1.3_Spec.md) | 历史基线，保留用于 diff，不作为 v1.3.2 权威执行口径 |
-| [历史 v1.3 开发计划](docs/MSkit_v1.3_Development_Plan.md) | 历史基线，保留用于 diff |
-| [历史 v1.3 BOM 表](docs/MSkit_v1.3_BOM_Cost_Table.md) | 历史基线，保留用于 diff |
-| [历史 v1.3 Checklist](docs/MSkit_v1.3_Development_Checklist.md) | 历史基线，保留用于 diff |
+| [v1.3 明细规格](docs/MSkit_v1.3_Spec.md) | **明细基线（仍然有效）**：完整硬件/接口/附录 A–E/术语表/SBOM 许可证/风险矩阵；v1.3.2 未覆盖的明细以此为准 |
+| [v1.3 明细开发计划](docs/MSkit_v1.3_Development_Plan.md) | **明细基线（仍然有效）**：完整 WP 表（WP-ID / DoD / 关口）；v1.3.2 计划为其变更集 |
+| [v1.3 明细 BOM 表](docs/MSkit_v1.3_BOM_Cost_Table.md) | **明细基线（仍然有效）**：元件级成本明细；v1.3.2 BOM 表为其同步/覆盖层 |
+| [v1.3 明细 Checklist](docs/MSkit_v1.3_Development_Checklist.md) | **明细基线（仍然有效）**：逐项检查清单；v1.3.2 Checklist 覆盖不一致项 |
 
-> **规格来源约定**：`MSkit_v1.3.2_Spec.md` 为当前权威源；历史 v1.3 文档保留用于 diff。如需 Word/PDF 版本用于对外分发，从当前权威 Markdown 导出。
+> **规格来源约定（分层权威）**：v1.3.2 文档集是 v1.3 的**变更集/覆盖层**，二者配套使用——
+> - **冲突处**以 v1.3.2 为准（口径、命名、数值、合规表述）；
+> - **未覆盖的工程明细**（接口/引脚定义、附录 A–E、术语表、SBOM 许可证清单、元件级 BOM、完整 WP 表）仍以 v1.3 明细文档为准，**v1.3 明细并未失效**。
+>
+> 如需 Word/PDF 版本用于对外分发，从上述 Markdown 导出。
 
 ### 尚未提供的附属图（规格中被引用）
 

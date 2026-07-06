@@ -24,7 +24,7 @@
 |------|------|---------|
 | G1 Spec 冻结 | M2 | v1.3.2 规格、BOM、Checklist、开发计划口径一致；无 P0 文档冲突 |
 | G2 POC 技术解风险 | M4.5 | AI 模型推理、端到端视频、RTK、热成像取流、LoRa 低速遥测、电池安全台架实测达标 |
-| G3 Alpha 软件 | M8 | Lite/Standard/Profile 分层部署跑通；无人机仅做日志、媒体、视频数据接入 |
+| G3 Alpha 软件 | M8 | Lite/Standard/Pro 分层部署跑通；无人机仅做日志、媒体、视频数据接入 |
 | G4 Beta 硬件定型 | M11 | IP/环境/EMC 预测试按目标 SKU 完成；电池运输路径确认 |
 | G5 认证通过 | M13.5 | SRRC/CE/FCC/UN38.3/RoHS/REACH 等文档齐备 |
 | G6 首批交付 | M15 | 50 套 Pilot Batch 出厂测试 100% 通过 |
@@ -43,10 +43,10 @@
 | WP-2.6 | LoRa 按地区化 SKU 采购与测试；只验收低速遥测，不验收文件传输 | EMB/SCM |
 | WP-2.7 | 标准版优先 Li-ion/LiFePO4；LiPo 仅用于工程样机/专业用户版本；>300Wh 按危险品运输评估 | HW/SCM/LEG |
 | WP-3.3 | YOLOv8/Ultralytics 商用授权必须在 v1.4 前落定；否则替换宽松许可框架并重测性能 | AI/LEG |
-| WP-3.8 | 加密导出为加密包导出 + PIN/FIDO2/本地账户二次确认；不得默认输出明文 | EMB/FS |
-| WP-4.3 | 环境测试为设计验证；第三方报告前不得宣称 MIL-STD-810H certified | HW/QA |
-| WP-4.4 | EMC 按消费 Class B / 工业 Class A 目标拆分 | HW/QA |
-| WP-4.6 | 无人机集成仅做日志、媒体和视频流接入；控制类集成不纳入 MVP，需另行合规与安全评审 | EMB/PM |
+| WP-3.7.2 | 加密导出为加密包导出 + PIN/FIDO2/本地账户二次确认；不得默认输出明文 | EMB/FS |
+| WP-4.3.1 | 环境测试为设计验证；第三方报告前不得宣称 MIL-STD-810H certified | HW/QA |
+| WP-4.4.1 | EMC 按消费 Class B / 工业 Class A 目标拆分 | HW/QA |
+| WP-4.6（新增） | 无人机集成仅做日志、媒体和视频流接入；控制类集成不纳入 MVP，需另行合规与安全评审（历史计划 Phase 4 未含无人机 WP，本项为 v1.3.2 新增，须补入明细计划） | EMB/PM |
 
 ---
 
