@@ -1,1 +1,0 @@
-Checklist content from attachment
