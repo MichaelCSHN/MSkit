@@ -2,8 +2,9 @@
 
 > 本Checklist按模块和开发阶段组织，供开发团队逐项核对。每个条目包含：□ 待完成 / ☑ 已完成 / ⏳ 进行中
 > 最后更新：2026年7月
-> 相关文档：[主规格 MSkit_v1.3_Spec.md](MSkit_v1.3_Spec.md) ｜ [BOM 成本表](MSkit_v1.3_BOM_Cost_Table.md)
+> 相关文档：[主规格 MSkit_v1.3_Spec.md](MSkit_v1.3_Spec.md) ｜ [可验收开发计划](MSkit_v1.3_Development_Plan.md) ｜ [BOM 成本表](MSkit_v1.3_BOM_Cost_Table.md)
 > 阶段划分与里程碑（M1–M6、18 个月）以主规格 §9 实施计划为准。
+> 本 Checklist 为逐项勾选清单；每项的**负责人、量化验收标准（DoD）、关口绑定**见[开发计划](MSkit_v1.3_Development_Plan.md)。
 
 ---
 

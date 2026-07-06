@@ -43,6 +43,7 @@ MSkit 在一台 Pelican 加固箱内集成高算力边缘 AI、厘米级 RTK 定
 |------|------|
 | [MSkit_v1.3_Spec.md](docs/MSkit_v1.3_Spec.md) | **主规格文档**（版本可控 Markdown）：需求、硬件、软件、接口、测试、预算、风险、验收、附录 |
 | [MSkit_Spec_v1.3.docx](docs/MSkit_Spec_v1.3.docx) | 主规格文档的 Word 版本（用于对外分发/评审签署） |
+| [MSkit_v1.3_Development_Plan.md](docs/MSkit_v1.3_Development_Plan.md) | **可验收开发计划**：工作包（WP）分解 + 量化验收标准（DoD）+ G1–G6 关口 + KPI 矩阵 + 关键路径 |
 | [MSkit_v1.3_BOM_Cost_Table.md](docs/MSkit_v1.3_BOM_Cost_Table.md) | 详细 BOM 成本分解表（50 套小批量）、变体总览、研发预算 |
 | [MSkit_v1.3_Development_Checklist.md](docs/MSkit_v1.3_Development_Checklist.md) | 按 Phase/模块细分的 18 个月开发检查清单 + 性能验收清单 |
 
