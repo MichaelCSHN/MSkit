@@ -48,6 +48,7 @@ MSkit 在一台加固便携箱内集成高算力边缘 AI、厘米级 RTK 定位
 | [MSkit_v1.3.2_Development_Plan.md](docs/MSkit_v1.3.2_Development_Plan.md) | **v1.3.2 同步开发计划**：统一 AI 测量口径、无人机数据接入边界、Class A/B、加密导出验收、M16–M18 |
 | [MSkit_v1.3.2_BOM_Cost_Table.md](docs/MSkit_v1.3.2_BOM_Cost_Table.md) | **v1.3.2 BOM 同步表**：地区化通信 SKU、电池化学体系分层、Pilot Batch 经济性 |
 | [MSkit_v1.3.2_Development_Checklist.md](docs/MSkit_v1.3.2_Development_Checklist.md) | **v1.3.2 同步 Checklist**：修正 LoRa、EMC、环境测试、无人机、加密导出与授权检查项 |
+| [MSkit_v1.3.2_Outsourcing_Modules.md](docs/MSkit_v1.3.2_Outsourcing_Modules.md) | **v1.3.2 外协分包方案**：并行外协模块、内部保留事项、接口治理、合同与验收建议 |
 | [历史 v1.3 规格](docs/MSkit_v1.3_Spec.md) | 历史基线，保留用于 diff，不作为 v1.3.2 权威执行口径 |
 | [历史 v1.3 开发计划](docs/MSkit_v1.3_Development_Plan.md) | 历史基线，保留用于 diff |
 | [历史 v1.3 BOM 表](docs/MSkit_v1.3_BOM_Cost_Table.md) | 历史基线，保留用于 diff |
