@@ -1,11 +1,16 @@
 # MSkit v1.3.2 开发 Checklist 同步版
 
-> **基线**：`MSkit_v1.3.2_Spec.md`｜**用途**：替代历史 `MSkit_v1.3_Development_Checklist.md` 中与 v1.3.2 不一致的条目，并同步黑/红/蓝三方架构、外协一级包 A–F 与 MVP 路演演示执行口径。
+> **基线**：`MSkit_v1.3.2_Spec.md`｜**用途**：替代历史 `MSkit_v1.3_Development_Checklist.md` 中与 v1.3.2 不一致的条目，并同步黑/红/蓝三方架构、核心应用场景、外协一级包 A–F 与 MVP 路演演示执行口径。
 
 ---
 
 ## Phase 0: MVP 路演演示
 
+- [ ] 项目定位冻结：MSkit = 面向民用/商用实景活动、演练、赛事、搜救和安保训练的黑/红/蓝三方智能规控平台。
+- [ ] 核心场景冻结：Hide and Seek 实景对抗赛、大型 Milsim 实景游戏、安保训练、野外搜救。
+- [ ] 扩展场景确认：灾害应急演练、越野定向/户外挑战赛、大型活动安保、工业/农林巡检、生态观察与动物追踪、影视/实景娱乐项目运营、校园/园区安全演练。
+- [ ] MVP 主脚本确认：Hide and Seek 实景对抗赛（黑/红/蓝）。
+- [ ] MVP 备选脚本确认：野外搜救（黑/红，可选蓝方安全区）。
 - [ ] MVP 硬件方案确认：方案 A（笔记本 + 无人机遥控器 + 无人机）或方案 B（笔记本 + 无人机/离线素材导入）。
 - [ ] MVP 合规边界确认：不做飞控控制、不自动起飞/降落、不下发航线、不展示军事化目标分类或作战控制。
 - [ ] 黑/红/蓝三方角色定义冻结：黑方=组织者/裁判/调度，红方=攻方/搜救/搜索小队，蓝方=守方/安保/防护小队。
@@ -42,6 +47,8 @@
 - [ ] v1.3.2 Spec 签署：PM + 技术负责人 + 法务。
 - [ ] 术语表审查：统一为“避免军用采购、武器化与作战用途表述”。
 - [ ] 黑/红/蓝三方术语审查：对外材料优先使用“组织者/裁判视图、搜索/搜救小队、安保/防护小队”等民用表达。
+- [ ] Hide and Seek 与 Milsim 对外叙事审查：强调“活动/赛事/模拟游戏”，不得出现作战、打击、敌我识别、武器识别等表述。
+- [ ] 野外搜救与生态观察叙事审查：遵守当地无人机、隐私、野生动物、狩猎和救援协作法规。
 - [ ] SKU 命名审查：对外材料优先使用 Team / Field，不突出 Command。
 - [ ] YOLOv8/Ultralytics 授权决策：Enterprise License 或替换宽松许可框架。
 - [ ] 地区化无线 SKU 矩阵确认：CN / US / EU。
@@ -98,7 +105,7 @@
 
 ## Phase 6: 交付与文档
 
-- [ ] README、Spec、Tri-Party Functions、MVP Demo Plan、BOM、Development Plan、Checklist、Outsourcing Modules 均同步 v1.3.2 口径。
+- [ ] README、Spec、Positioning and Scenarios、Tri-Party Functions、MVP Demo Plan、BOM、Development Plan、Checklist、Outsourcing Modules 均同步 v1.3.2 口径。
 - [ ] 三个附属图入库或标记“待补充，未入库前不得作为规格完整性交付项”。
 - [ ] Pilot Batch 50 套不承担全部研发摊销；商业模型按 300–500 套重算。
 - [ ] F 包试产 SOP、工装、老化测试、出厂测试脚本和良率报告通过内部 QA 签署。
