@@ -28,6 +28,7 @@ class Activity(SQLModel, table=True):
     center_lat: float = 0.0
     center_lon: float = 0.0
     zoom: float = 15.0
+    sar_complete: bool = False       # SAR: searcher reached the target
     created_at: datetime = Field(default_factory=_utcnow)
 
 
@@ -72,8 +73,23 @@ class Detection(SQLModel, table=True):
     ts: datetime = Field(default_factory=_utcnow)
     media_ref: Optional[str] = None
     status: str = "candidate"       # candidate | confirmed | rejected
+    priority: int = 0               # 0=none, 1..5 (higher = more urgent), from confidence
     simulated: bool = True          # MVP honesty: real inference vs pre-seeded/simulated
     note: Optional[str] = None
+
+
+class Marker(SQLModel, table=True):
+    """SAR ground-truth: hidden target / decoys the search team must find.
+
+    Never exposed to the search role until revealed by a drone sweep.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    activity_id: int = Field(foreign_key="activity.id", index=True)
+    kind: str = "target"            # target | decoy
+    lat: float = 0.0
+    lon: float = 0.0
+    revealed: bool = False
+    detection_id: Optional[int] = None
 
 
 class Event(SQLModel, table=True):

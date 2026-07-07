@@ -72,6 +72,10 @@ export default function App() {
   const [basemap, setBasemap] = useState('street')
   const [drawKind, setDrawKind] = useState('activity')
   const [drawN, setDrawN] = useState(0)
+  const [scenario, setScenario] = useState('hide_and_seek')
+  const [decoys, setDecoys] = useState(4)
+  const [altitude, setAltitude] = useState(90)
+  const [sarStat, setSarStat] = useState(null)
 
   // init map + data
   useEffect(() => {
@@ -85,7 +89,7 @@ export default function App() {
     m.addControl(new maplibregl.NavigationControl(), 'top-right')
 
     m.on('load', async () => {
-      for (const id of ['zones', 'tracks', 'dets', 'cov-obs', 'cov-gaps', 'route', 'draw']) {
+      for (const id of ['zones', 'tracks', 'dets', 'cov-obs', 'cov-gaps', 'route', 'draw', 'sweep']) {
         m.addSource(id, { type: 'geojson', data: EMPTY })
       }
       m.addLayer({
@@ -115,6 +119,10 @@ export default function App() {
             'search', '#b45309', 'protection', '#047857', 'organizer', '#1d4ed8', '#555'],
           'line-width': 3, 'line-dasharray': [2, 1],
         },
+      })
+      m.addLayer({
+        id: 'sweep-line', type: 'line', source: 'sweep',
+        paint: { 'line-color': '#06b6d4', 'line-width': 1.5, 'line-opacity': 0.7, 'line-dasharray': [1, 1] },
       })
       m.addLayer({
         id: 'cov-gaps', type: 'circle', source: 'cov-gaps',
@@ -158,10 +166,12 @@ export default function App() {
         id: 'det-circle', type: 'circle', source: 'dets',
         filter: ['!=', ['get', 'kind'], 'change'],
         paint: {
-          'circle-radius': 7,
+          // in SAR, candidates carry priority 1..5 → bigger = more urgent
+          'circle-radius': ['case', ['>', ['get', 'priority'], 0],
+            ['+', 5, ['*', ['get', 'priority'], 1.4]], 7],
           'circle-color': ['match', ['get', 'status'],
             'confirmed', '#16a34a', 'rejected', '#9ca3af', '#f59e0b'],
-          'circle-opacity': ['case', ['get', 'simulated'], 0.55, 0.95],
+          'circle-opacity': ['case', ['get', 'simulated'], 0.6, 0.95],
           'circle-stroke-color': '#111', 'circle-stroke-width': 1.5,
         },
       })
@@ -175,7 +185,11 @@ export default function App() {
           return
         }
         const f = m.queryRenderedFeatures(e.point, { layers: ['det-circle', 'det-change'] })
-        if (f.length) { setDet(f[0].properties); return }
+        if (f.length) {
+          const ft = f[0]
+          setDet({ ...ft.properties, _lon: ft.geometry.coordinates[0], _lat: ft.geometry.coordinates[1] })
+          return
+        }
         setDet(null)
         const zf = m.queryRenderedFeatures(e.point, { layers: ['zone-fill'] })
         if (zf.length) setMsg(`区域：${zf[0].properties.name}（${zf[0].properties.kind}）`)
@@ -214,7 +228,11 @@ export default function App() {
       map.current.getSource('tracks').setData(s.tracks)
       map.current.getSource('dets').setData(s.detections)
       setCounts(s.counts)
+      setScenario(s.activity.scenario)
       setMsg(`活动 #${id} · ${s.activity.name}`)
+      if (s.activity.scenario === 'sar') {
+        try { setSarStat(await api.sarStatus(id)) } catch { /* ignore */ }
+      } else setSarStat(null)
     } catch (err) {
       console.error(err)
       setMsg('❌ 加载态势失败：' + err.message)
@@ -365,6 +383,68 @@ export default function App() {
     }
   }
 
+  // ---- scenario + SAR ----
+  async function reloadActivity() {
+    const acts = await api.activities()
+    if (!acts.length) return
+    const a = acts[0]
+    actId.current = a.id
+    map.current.jumpTo({ center: [a.center_lon, a.center_lat], zoom: a.zoom })
+    for (const src of ['cov-obs', 'cov-gaps', 'route', 'sweep', 'draw']) map.current.getSource(src).setData(EMPTY)
+    roleRef.current = 'organizer'
+    setRole('organizer')
+    await load('organizer')
+  }
+
+  async function switchScenario(kind) {
+    setMsg('切换场景中…')
+    if (kind === 'sar') await api.sarReset()
+    else await api.reset()
+    await reloadActivity()
+    setMsg(kind === 'sar' ? '已切到搜救(SAR)' : '已切到捉迷藏')
+  }
+
+  async function doPlaceTargets() {
+    const r = await api.placeTargets(actId.current, decoys)
+    map.current.getSource('sweep').setData(EMPTY)
+    await load(roleRef.current)
+    setMsg(`已预置隐藏目标：1 目标 + ${r.decoys} 疑似（搜索方不可见）`)
+  }
+
+  async function doDroneSweep() {
+    const r = await api.droneSweep(actId.current, altitude)
+    map.current.getSource('sweep').setData(r.sweep)
+    await load(roleRef.current)
+    setMsg(`无人机拉网：足迹 ${r.footprint_m}m · 覆盖 ${(r.coverage_ratio * 100).toFixed(0)}% · 检出候选 ${r.detected}`)
+  }
+
+  async function doRoutePriority() {
+    const s = await api.state(actId.current, 'organizer')
+    const safe = s.zones.features.find((f) => f.properties.kind === 'safe' && f.properties.name.includes('出发'))
+      || s.zones.features.find((f) => f.properties.kind === 'safe')
+    if (!safe) { setMsg('无出发安全区'); return }
+    const ring = safe.geometry.coordinates[0]
+    const start = [
+      ring.reduce((a, p) => a + p[0], 0) / ring.length,
+      ring.reduce((a, p) => a + p[1], 0) / ring.length,
+    ]
+    try {
+      const r = await api.routePriority(actId.current, start, 3)
+      map.current.getSource('route').setData(r.geojson)
+      setMsg(`优先级路由：串联 ${r.stops} 个高优先候选 · ${r.length_m} m（从出发点贪心）`)
+    } catch (err) {
+      setMsg('路由失败（可能没有 ≥3 优先级候选）：' + err.message)
+    }
+  }
+
+  async function arriveAt() {
+    if (!det) return
+    const r = await api.arrive(actId.current, [det._lon, det._lat])
+    try { setSarStat(await api.sarStatus(actId.current)) } catch { /* ignore */ }
+    if (r.complete) setMsg(`🎯 到达目标！任务完成（距离 ${r.distance_m}m）`)
+    else setMsg(`核查此候选：距真目标 ${r.distance_m}m —— 不是目标，继续下一个`)
+  }
+
   return (
     <div className="app">
       <div ref={mapEl} className="map"
@@ -373,8 +453,14 @@ export default function App() {
         <h1>MSkit MVP</h1>
         <div className="sub">组织 / 搜索 / 防护 · 三方态势</div>
 
+        <div className="scenario">
+          <span>场景</span>
+          <button disabled={!ready} className={scenario !== 'sar' ? 'active' : ''} onClick={() => switchScenario('hs')}>捉迷藏</button>
+          <button disabled={!ready} className={scenario === 'sar' ? 'active' : ''} onClick={() => switchScenario('sar')}>搜救</button>
+        </div>
+
         <div className="roles">
-          {ROLES.map((r) => (
+          {(scenario === 'sar' ? ROLES.filter((r) => r.key !== 'protection') : ROLES).map((r) => (
             <button key={r.key} disabled={!ready}
               className={role === r.key ? 'role active' : 'role'}
               onClick={() => switchRole(r.key)} title={r.hint}>
@@ -394,6 +480,34 @@ export default function App() {
             <div>区域 <b>{counts.zones}</b> · 轨迹 <b>{counts.tracks}</b> · 发现 <b>{counts.detections}</b></div>
             <div className="disc">真实 {counts.detections_real} · 模拟 {counts.detections_simulated}
               <span className="tag">MVP 披露</span></div>
+          </div>
+        )}
+
+        {scenario === 'sar' && (
+          <div className="sar">
+            <div className="sar-head">搜救 (SAR) · {role === 'organizer' ? '组织方' : '搜索方'}</div>
+            {sarStat && (
+              <div className="sar-stat">
+                目标{sarStat.target_revealed ? '已检出' : '未检出'} · 疑似 {sarStat.decoys_revealed}/{sarStat.decoys}
+                {sarStat.complete && <b style={{ color: '#16a34a' }}> · 任务完成 ✅</b>}
+              </div>
+            )}
+            {role === 'organizer' && (
+              <div className="sar-row">
+                <label>疑似 <input type="number" min="0" max="12" value={decoys} onChange={(e) => setDecoys(+e.target.value)} /></label>
+                <button disabled={!ready} onClick={doPlaceTargets}>预置隐藏目标</button>
+              </div>
+            )}
+            {role === 'search' && (
+              <>
+                <div className="sar-row">
+                  <label>高度 <input type="number" min="30" max="200" value={altitude} onChange={(e) => setAltitude(+e.target.value)} />m</label>
+                  <button disabled={!ready} onClick={doDroneSweep}>无人机拉网</button>
+                </div>
+                <button disabled={!ready} onClick={doRoutePriority}>优先级路由（串高优先候选）</button>
+                <div className="sar-hint">点候选点 → "到达核查" 验证是否为真目标</div>
+              </>
+            )}
           </div>
         )}
 
@@ -452,8 +566,12 @@ export default function App() {
       {det && (
         <div className="det-card">
           <b>发现点 #{det.id}</b>
-          <div>类别：{det.label} · 置信度 {Number(det.confidence).toFixed(2)}</div>
+          <div>类别：{det.label} · 置信度 {Number(det.confidence).toFixed(2)}
+            {det.priority > 0 && <> · 优先级 P{det.priority}</>}</div>
           <div>状态：{det.status} · {String(det.simulated) === 'true' ? '模拟/预置' : '真实推理'}</div>
+          {scenario === 'sar' && (
+            <button className="arrive" onClick={arriveAt}>到达核查（是否真目标）</button>
+          )}
           <div className="det-actions">
             <button className="ok" onClick={() => reviewDet('confirmed')}>确认</button>
             <button className="no" onClick={() => reviewDet('rejected')}>驳回</button>

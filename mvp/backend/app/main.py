@@ -18,7 +18,15 @@ from .tiles import router as tiles_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    seeded = seed_if_empty()
+    try:
+        seeded = seed_if_empty()
+    except Exception:
+        # schema drift (new columns in an old dev DB): recreate and reseed
+        from sqlmodel import SQLModel
+        from .db import engine
+        SQLModel.metadata.drop_all(engine)
+        SQLModel.metadata.create_all(engine)
+        seeded = seed_if_empty()
     if seeded:
         print(f"[seed] created demo activity id={seeded}")
     yield

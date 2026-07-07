@@ -69,3 +69,29 @@ def seed_if_empty() -> int | None:
                             lat=d["lat"], lon=d["lon"], simulated=True))
         s.commit()
         return a.id
+
+
+def seed_sar() -> int:
+    """Create a fresh SAR activity (organizer+search only): activity zone,
+    search zone, two safe zones (start/evacuation), one no-go. No targets yet
+    (organizer places them as an action)."""
+    with Session(engine) as s:
+        a = Activity(name="野外搜救 演示场", scenario="sar",
+                     center_lat=LAT0, center_lon=LON0, zoom=15.0)
+        s.add(a)
+        s.commit()
+        s.refresh(a)
+        s.add_all([
+            Zone(activity_id=a.id, name="活动区", kind="activity", role_owner="organizer",
+                 polygon_json=json.dumps(_rect(LON0, LAT0, 0.0100, 0.0070))),
+            Zone(activity_id=a.id, name="重点搜索区", kind="search", role_owner="search",
+                 polygon_json=json.dumps(_rect(LON0 + 0.0010, LAT0, 0.0055, 0.0045))),
+            Zone(activity_id=a.id, name="出发点(安全区1)", kind="safe", role_owner="organizer",
+                 polygon_json=json.dumps(_rect(LON0 - 0.0082, LAT0 - 0.0055, 0.0012, 0.0010))),
+            Zone(activity_id=a.id, name="撤离点(安全区2)", kind="safe", role_owner="organizer",
+                 polygon_json=json.dumps(_rect(LON0 + 0.0082, LAT0 + 0.0055, 0.0012, 0.0010))),
+            Zone(activity_id=a.id, name="禁入区(危险)", kind="no_go", role_owner="organizer",
+                 polygon_json=json.dumps(_rect(LON0 + 0.0010, LAT0 - 0.0030, 0.0010, 0.0012))),
+        ])
+        s.commit()
+        return a.id

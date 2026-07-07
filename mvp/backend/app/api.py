@@ -10,9 +10,9 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from .db import get_session
-from .models import Activity, Zone, Track, TrackPoint, Detection, Event, ROLES
+from .models import Activity, Zone, Track, TrackPoint, Detection, Event, Marker, ROLES
 from . import geo
-from .services import logparse, detect, report
+from .services import logparse, detect, report, sar
 
 router = APIRouter()
 
@@ -96,6 +96,32 @@ class RouteIn(BaseModel):
     start: list[float]  # [lon,lat]
     goal: list[float]   # [lon,lat]
     cell_m: float = 20.0
+
+
+class PlaceTargetsIn(BaseModel):
+    decoys: int = 4
+    seed: int = 17
+
+
+class DroneSweepIn(BaseModel):
+    altitude_m: float = 80.0
+    fov_deg: float = 60.0
+    spacing_m: Optional[float] = None
+    seed: int = 11
+
+
+class PriorityIn(BaseModel):
+    priority: int  # 1..5
+
+
+class RoutePriorityIn(BaseModel):
+    start: list[float]      # [lon,lat]
+    min_priority: int = 1
+
+
+class ArriveIn(BaseModel):
+    point: list[float]      # [lon,lat]
+    threshold_m: float = 60.0
 
 
 # ---- health & activities --------------------------------------------------
@@ -343,6 +369,155 @@ def route(activity_id: int, body: RouteIn, session: Session = Depends(get_sessio
     }
 
 
+# ---- SAR (search & rescue) Phase 1 ----------------------------------------
+def _search_ring(session: Session, activity_id: int):
+    z = session.exec(select(Zone).where(Zone.activity_id == activity_id,
+                                        Zone.kind == "search")).first()
+    return json.loads(z.polygon_json) if z else None
+
+
+@router.post("/demo/sar")
+def demo_sar(session: Session = Depends(get_session)):
+    """Reset to a fresh SAR scenario (organizer + search)."""
+    from sqlmodel import SQLModel
+    from .db import engine
+    from .seed import seed_sar
+    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.create_all(engine)
+    aid = seed_sar()
+    return {"reset": True, "scenario": "sar", "activity_id": aid}
+
+
+@router.post("/activities/{activity_id}/sar/place-targets")
+def sar_place_targets(activity_id: int, body: PlaceTargetsIn,
+                      session: Session = Depends(get_session)):
+    """Organizer places 1 hidden target + N decoys inside the search zone.
+    Locations are NOT returned (hidden from the search team)."""
+    a = _get_activity(session, activity_id)
+    ring = _search_ring(session, activity_id)
+    if not ring:
+        raise HTTPException(400, "no search zone; draw one first")
+    # clear previous hunt (markers + detections), reset completion
+    for mk in session.exec(select(Marker).where(Marker.activity_id == activity_id)).all():
+        session.delete(mk)
+    for d in session.exec(select(Detection).where(Detection.activity_id == activity_id)).all():
+        session.delete(d)
+    a.sar_complete = False
+    session.add(a)
+    pts = geo.sample_in_ring(ring, body.decoys + 1, body.seed)
+    if not pts:
+        raise HTTPException(422, "could not sample points in search zone")
+    for i, p in enumerate(pts):
+        session.add(Marker(activity_id=activity_id, kind=("target" if i == 0 else "decoy"),
+                           lon=p[0], lat=p[1]))
+    session.commit()
+    return {"placed": True, "target": 1, "decoys": len(pts) - 1}
+
+
+@router.post("/activities/{activity_id}/sar/drone-sweep")
+def sar_drone_sweep(activity_id: int, body: DroneSweepIn,
+                    session: Session = Depends(get_session)):
+    """Fly a lawnmower sweep of the search zone; probabilistically detect
+    hidden markers within the camera footprint and surface them as candidates."""
+    a = _get_activity(session, activity_id)
+    ring = _search_ring(session, activity_id)
+    if not ring:
+        raise HTTPException(400, "no search zone")
+    radius = sar.footprint_radius(body.altitude_m, body.fov_deg)
+    spacing = body.spacing_m or radius * 1.6
+    path = sar.lawnmower_path(ring, a.center_lon, a.center_lat, spacing)
+    cov = sar.coverage_ratio(ring, path, radius, a.center_lon, a.center_lat)
+    markers = session.exec(select(Marker).where(Marker.activity_id == activity_id,
+                                                Marker.revealed == False)).all()  # noqa: E712
+    hits = sar.detect_markers(path, markers, radius, body.seed)
+    created = 0
+    mk_by_id = {m.id: m for m in markers}
+    for h in hits:
+        d = Detection(activity_id=activity_id, kind="object", label=h["label"],
+                      confidence=h["confidence"], priority=h["priority"],
+                      lat=h["lat"], lon=h["lon"], simulated=True)
+        session.add(d)
+        session.commit()
+        session.refresh(d)
+        mk = mk_by_id.get(h["marker_id"])
+        if mk:
+            mk.revealed = True
+            mk.detection_id = d.id
+            session.add(mk)
+        session.add(Event(activity_id=activity_id, type="detection", role="search",
+                          lat=h["lat"], lon=h["lon"], detail=f"drone:{h['label']} p{h['priority']}"))
+        created += 1
+    session.commit()
+    return {
+        "footprint_m": round(radius, 1), "spacing_m": round(spacing, 1),
+        "coverage_ratio": cov, "detected": created,
+        "sweep": {"type": "Feature", "properties": {"coverage": cov},
+                  "geometry": {"type": "LineString", "coordinates": path}},
+    }
+
+
+@router.post("/detections/{detection_id}/priority")
+def set_priority(detection_id: int, body: PriorityIn, session: Session = Depends(get_session)):
+    d = session.get(Detection, detection_id)
+    if not d:
+        raise HTTPException(404, "detection not found")
+    d.priority = max(1, min(5, body.priority))
+    session.add(d)
+    session.commit()
+    session.refresh(d)
+    return d
+
+
+@router.post("/activities/{activity_id}/sar/route-priority")
+def sar_route_priority(activity_id: int, body: RoutePriorityIn,
+                       session: Session = Depends(get_session)):
+    """Greedy priority tour from `start` through candidate detections."""
+    a = _get_activity(session, activity_id)
+    dets = session.exec(select(Detection).where(Detection.activity_id == activity_id)).all()
+    pts = [{"id": d.id, "lat": d.lat, "lon": d.lon, "priority": d.priority}
+           for d in dets if d.status != "rejected" and d.priority >= body.min_priority]
+    if not pts:
+        raise HTTPException(422, "no candidate points at/above min_priority")
+    tour = sar.priority_tour(body.start, pts, _no_go_polys(session, activity_id),
+                             a.center_lon, a.center_lat)
+    tour["geojson"] = {"type": "Feature", "properties": {"length_m": tour["length_m"]},
+                       "geometry": {"type": "LineString", "coordinates": tour["path"]}}
+    tour["stops"] = len(pts)
+    return tour
+
+
+@router.post("/activities/{activity_id}/sar/arrive")
+def sar_arrive(activity_id: int, body: ArriveIn, session: Session = Depends(get_session)):
+    """Check whether `point` reaches the hidden target; mark complete if so."""
+    a = _get_activity(session, activity_id)
+    target = session.exec(select(Marker).where(Marker.activity_id == activity_id,
+                                               Marker.kind == "target")).first()
+    if not target:
+        raise HTTPException(400, "no target placed")
+    dist = geo.haversine_m(body.point, [target.lon, target.lat])
+    arrived = dist <= body.threshold_m
+    if arrived:
+        a.sar_complete = True
+        session.add(a)
+        session.commit()
+    return {"arrived": arrived, "complete": a.sar_complete, "distance_m": round(dist, 1),
+            "threshold_m": body.threshold_m}
+
+
+@router.get("/activities/{activity_id}/sar/status")
+def sar_status(activity_id: int, session: Session = Depends(get_session)):
+    a = _get_activity(session, activity_id)
+    markers = session.exec(select(Marker).where(Marker.activity_id == activity_id)).all()
+    target = next((m for m in markers if m.kind == "target"), None)
+    decoys = [m for m in markers if m.kind == "decoy"]
+    return {
+        "scenario": a.scenario, "has_target": target is not None,
+        "target_revealed": bool(target and target.revealed),
+        "decoys": len(decoys), "decoys_revealed": sum(1 for m in decoys if m.revealed),
+        "complete": a.sar_complete,
+    }
+
+
 # ---- aggregate state for the map ------------------------------------------
 def _points_fc(points: list[list[float]], props: dict) -> dict:
     return {"type": "FeatureCollection", "features": [
@@ -385,7 +560,8 @@ def state(activity_id: int, role: str = "organizer", session: Session = Depends(
     det_features = [{
         "type": "Feature",
         "properties": {"id": d.id, "label": d.label, "kind": d.kind, "confidence": d.confidence,
-                       "status": d.status, "simulated": d.simulated, "note": d.note},
+                       "priority": d.priority, "status": d.status, "simulated": d.simulated,
+                       "note": d.note},
         "geometry": {"type": "Point", "coordinates": [d.lon, d.lat]},
     } for d in dets]
 

@@ -47,4 +47,28 @@ export const api = {
     return j(`${BASE}/activities/${id}/tracks`, { method: 'POST', body: fd })
   },
   reportUrl: (id) => `${BASE}/activities/${id}/report.html`,
+
+  // --- SAR (search & rescue) ---
+  sarReset: () => j(`${BASE}/demo/sar`, { method: 'POST' }),
+  placeTargets: (id, decoys = 4) =>
+    j(`${BASE}/activities/${id}/sar/place-targets`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ decoys }),
+    }),
+  droneSweep: (id, altitude_m = 90) =>
+    j(`${BASE}/activities/${id}/sar/drone-sweep`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ altitude_m }),
+    }),
+  routePriority: (id, start, min_priority = 1) =>
+    j(`${BASE}/activities/${id}/sar/route-priority`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start, min_priority }),
+    }),
+  arrive: (id, point) =>
+    j(`${BASE}/activities/${id}/sar/arrive`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ point }),
+    }),
+  sarStatus: (id) => j(`${BASE}/activities/${id}/sar/status`),
 }

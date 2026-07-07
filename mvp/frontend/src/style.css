@@ -22,6 +22,25 @@ body { font-family: system-ui, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
 .role.active { background: #111; color: #fff; border-color: #111; }
 .role:disabled { opacity: 0.5; cursor: default; }
 
+.scenario { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 12px; color: #555; }
+.scenario button {
+  padding: 4px 12px; border: 1px solid #d0d0d0; background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px;
+}
+.scenario button.active { background: #0369a1; color: #fff; border-color: #0369a1; }
+.scenario button:disabled { opacity: 0.5; cursor: default; }
+
+.sar { border: 1px solid #bae6fd; background: #f0f9ff; border-radius: 8px; padding: 8px; margin-bottom: 10px; }
+.sar-head { font-size: 12px; font-weight: 600; color: #0369a1; margin-bottom: 6px; }
+.sar-stat { font-size: 12px; color: #333; margin-bottom: 6px; }
+.sar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.sar-row label { font-size: 12px; color: #444; }
+.sar-row input { width: 46px; padding: 3px 4px; border: 1px solid #ccc; border-radius: 5px; }
+.sar-row button, .sar > button { flex: 1; padding: 7px; border: 1px solid #0369a1; color: #0369a1; background: #fff; border-radius: 7px; cursor: pointer; }
+.sar > button { width: 100%; margin-bottom: 6px; }
+.sar-hint { font-size: 11px; color: #666; }
+
+.det-card .arrive { width: 100%; margin-top: 8px; padding: 8px; border: 1px solid #0369a1; background: #0369a1; color: #fff; border-radius: 7px; cursor: pointer; }
+
 .basemap { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; font-size: 12px; color: #555; }
 .basemap button {
   padding: 4px 12px; border: 1px solid #d0d0d0; background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px;
