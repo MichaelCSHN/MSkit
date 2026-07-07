@@ -4,8 +4,6 @@ import App from './App.jsx'
 import './style.css'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-)
+// NOTE: no React.StrictMode — its dev double-mount creates/destroys the
+// MapLibre map twice and can leave a blank WebGL canvas.
+ReactDOM.createRoot(document.getElementById('root')).render(<App />)

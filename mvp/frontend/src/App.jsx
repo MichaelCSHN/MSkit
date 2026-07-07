@@ -28,7 +28,12 @@ const RASTER_STYLE = {
       attribution: '© OpenStreetMap contributors',
     },
   },
-  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+  layers: [
+    // Always-present background so the canvas is never blank, even with no
+    // network / blocked tiles. OSM streets (if reachable) draw on top.
+    { id: 'bg', type: 'background', paint: { 'background-color': '#e8eef3' } },
+    { id: 'osm', type: 'raster', source: 'osm' },
+  ],
 }
 
 const EMPTY = { type: 'FeatureCollection', features: [] }
@@ -81,11 +86,8 @@ export default function App() {
           'line-width': 2,
         },
       })
-      m.addLayer({
-        id: 'zone-label', type: 'symbol', source: 'zones',
-        layout: { 'text-field': ['get', 'name'], 'text-size': 12 },
-        paint: { 'text-color': '#111', 'text-halo-color': '#fff', 'text-halo-width': 1.5 },
-      })
+      // (no text 'symbol' layer: MapLibre text-field needs a 'glyphs' font
+      // source; zones are identified by color legend + click popup instead.)
       m.addLayer({
         id: 'track-line', type: 'line', source: 'tracks',
         paint: {
@@ -133,8 +135,10 @@ export default function App() {
       m.on('click', (e) => {
         if (modeRef.current === 'route') return onRouteClick(e.lngLat)
         const f = m.queryRenderedFeatures(e.point, { layers: ['det-circle', 'det-change'] })
-        if (f.length) setDet(f[0].properties)
-        else setDet(null)
+        if (f.length) { setDet(f[0].properties); return }
+        setDet(null)
+        const zf = m.queryRenderedFeatures(e.point, { layers: ['zone-fill'] })
+        if (zf.length) setMsg(`区域：${zf[0].properties.name}（${zf[0].properties.kind}）`)
       })
       for (const lyr of ['det-circle', 'det-change']) {
         m.on('mouseenter', lyr, () => { m.getCanvas().style.cursor = 'pointer' })
@@ -142,13 +146,20 @@ export default function App() {
       }
 
       // load activity + initial state
-      const acts = await api.activities()
-      if (!acts.length) { setMsg('无活动，请先播种后端'); return }
-      const a = acts[0]
-      actId.current = a.id
-      m.jumpTo({ center: [a.center_lon, a.center_lat], zoom: a.zoom })
-      setReady(true)
-      await load('organizer')
+      try {
+        const acts = await api.activities()
+        if (!acts.length) { setMsg('后端无活动，请点“重置演示”或检查播种'); return }
+        const a = acts[0]
+        actId.current = a.id
+        m.jumpTo({ center: [a.center_lon, a.center_lat], zoom: a.zoom })
+        setReady(true)
+        await load('organizer')
+        m.resize()
+        setTimeout(() => m.resize(), 300)
+      } catch (err) {
+        console.error(err)
+        setMsg('❌ 无法连接后端（:8000）。请先启动后端，再刷新本页。')
+      }
     })
 
     return () => m.remove()
@@ -157,12 +168,17 @@ export default function App() {
   async function load(r) {
     const id = actId.current
     if (id == null) return
-    const s = await api.state(id, r)
-    map.current.getSource('zones').setData(s.zones)
-    map.current.getSource('tracks').setData(s.tracks)
-    map.current.getSource('dets').setData(s.detections)
-    setCounts(s.counts)
-    setMsg(`活动 #${id} · ${s.activity.name}`)
+    try {
+      const s = await api.state(id, r)
+      map.current.getSource('zones').setData(s.zones)
+      map.current.getSource('tracks').setData(s.tracks)
+      map.current.getSource('dets').setData(s.detections)
+      setCounts(s.counts)
+      setMsg(`活动 #${id} · ${s.activity.name}`)
+    } catch (err) {
+      console.error(err)
+      setMsg('❌ 加载态势失败：' + err.message)
+    }
   }
 
   function switchRole(r) {
@@ -254,7 +270,8 @@ export default function App() {
 
   return (
     <div className="app">
-      <div ref={mapEl} className="map" />
+      <div ref={mapEl} className="map"
+           style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }} />
       <div className="panel">
         <h1>MSkit MVP</h1>
         <div className="sub">组织 / 搜索 / 防护 · 三方态势</div>
