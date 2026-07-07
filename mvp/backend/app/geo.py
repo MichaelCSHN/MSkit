@@ -218,6 +218,50 @@ def sample_in_ring(ring: list[list[float]], count: int, seed: int = 1) -> list[l
     return out
 
 
+def point_in_any(pt: tuple[float, float], polys: list[list[list[float]]]) -> bool:
+    return any(point_in_ring(pt, poly) for poly in polys)
+
+
+def convex_hull(points: list[list[float]]) -> list[list[float]]:
+    """Andrew's monotone chain convex hull. Input/return [[lon,lat],...]."""
+    pts = sorted(set((round(p[0], 7), round(p[1], 7)) for p in points))
+    if len(pts) <= 2:
+        return [list(p) for p in pts]
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    lower = []
+    for p in pts:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
+            lower.pop()
+        lower.append(p)
+    upper = []
+    for p in reversed(pts):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
+            upper.pop()
+        upper.append(p)
+    return [list(p) for p in (lower[:-1] + upper[:-1])]
+
+
+def buffer_ring(ring: list[list[float]], margin_m: float, c_lon: float, c_lat: float) -> list[list[float]]:
+    """Inflate a ring outward from its centroid by `margin_m` meters."""
+    if not ring:
+        return []
+    cx = sum(p[0] for p in ring) / len(ring)
+    cy = sum(p[1] for p in ring) / len(ring)
+    cxm, cym = to_xy(cx, cy, c_lon, c_lat)
+    out = []
+    for p in ring:
+        px, py = to_xy(p[0], p[1], c_lon, c_lat)
+        dx, dy = px - cxm, py - cym
+        d = math.hypot(dx, dy) or 1.0
+        nx, ny = px + dx / d * margin_m, py + dy / d * margin_m
+        lon, lat = to_lonlat(nx, ny, c_lon, c_lat)
+        out.append([round(lon, 6), round(lat, 6)])
+    return out
+
+
 def centroid(ring: list[list[float]]) -> list[float]:
     if not ring:
         return [0.0, 0.0]

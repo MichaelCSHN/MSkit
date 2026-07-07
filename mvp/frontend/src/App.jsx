@@ -51,6 +51,9 @@ const ZONE_KINDS = [
   { kind: 'safe', label: '安全区', owner: 'organizer' },
 ]
 const kindLabel = (k) => (ZONE_KINDS.find((z) => z.kind === k) || {}).label || k
+// priority band per docs §7.4 (0-100, P0 highest)
+const bandOf = (p) => (p >= 80 ? 'P0' : p >= 60 ? 'P1' : p >= 40 ? 'P2' : 'P3')
+const PRIO_SCORE = { P0: 90, P1: 70, P2: 50, P3: 20 }
 
 // small circle polygon ring [[lon,lat],...] around a point (meters radius)
 function circlePoly(lon, lat, rM = 8, n = 18) {
@@ -87,10 +90,10 @@ const GUIDE = {
       '预置隐藏目标（对搜索方不可见）',
       '切到“搜索方”移交任务'] },
     search: { title: '搜救·搜索方 · 检出 → 核查 → 到达', steps: [
-      '无人机拉网：检出橙色“候选点”',
-      '（可选）路线方式选“步行”',
-      '优先级路由，或手动路径规划(点途经点→双击结束)',
-      '点候选点 → 到达核查 → 到真目标即完成'] },
+      '无人机拉网：检出橙色“候选点”(P0–P3)',
+      '点候选点 → 改优先级 / 到达核查',
+      '更新搜索区(聚焦热点) → 优先级路由 或手动路径(点途经点→双击结束)',
+      '手动路线会提示是否穿禁入区/偏离；到真目标即完成'] },
   },
 }
 
@@ -157,8 +160,8 @@ export default function App() {
         paint: {
           'fill-color': ['match', ['get', 'kind'],
             'activity', '#ffffff', 'search', '#f59e0b', 'protection', '#3b82f6',
-            'no_go', '#ef4444', 'safe', '#14b8a6', 'staging', '#a78bfa', '#888'],
-          'fill-opacity': ['match', ['get', 'kind'], 'no_go', 0.28, 'activity', 0.10, 'protection', 0.12, 0.12],
+            'no_go', '#ef4444', 'safe', '#14b8a6', 'hotspot', '#f97316', 'staging', '#a78bfa', '#888'],
+          'fill-opacity': ['match', ['get', 'kind'], 'no_go', 0.28, 'activity', 0.10, 'hotspot', 0.15, 'protection', 0.12, 0.12],
         },
       })
       m.addLayer({
@@ -166,12 +169,18 @@ export default function App() {
         paint: {
           'line-color': ['match', ['get', 'kind'],
             'activity', '#ffffff', 'search', '#d97706', 'protection', '#1d4ed8',
-            'no_go', '#dc2626', 'safe', '#0d9488', 'staging', '#7c3aed', '#666'],
-          'line-width': ['match', ['get', 'kind'], 'activity', 2.5, 2],
+            'no_go', '#dc2626', 'safe', '#0d9488', 'hotspot', '#ea580c', 'staging', '#7c3aed', '#666'],
+          'line-width': ['match', ['get', 'kind'], 'activity', 2.5, 'hotspot', 2.5, 2],
         },
       })
       // (no text 'symbol' layer: MapLibre text-field needs a 'glyphs' font
       // source; zones are identified by color legend + click popup instead.)
+      // dashed outline for auto-generated hotspot sub-zones (search-area update)
+      m.addLayer({
+        id: 'zone-hotspot', type: 'line', source: 'zones',
+        filter: ['==', ['get', 'kind'], 'hotspot'],
+        paint: { 'line-color': '#ea580c', 'line-width': 3, 'line-dasharray': [2, 1.5] },
+      })
       m.addLayer({
         id: 'track-line', type: 'line', source: 'tracks',
         paint: {
@@ -231,9 +240,9 @@ export default function App() {
         id: 'det-circle', type: 'circle', source: 'dets',
         filter: ['!=', ['get', 'kind'], 'change'],
         paint: {
-          // in SAR, candidates carry priority 1..5 → bigger = more urgent
+          // in SAR, candidates carry priority 0..100 → bigger = more urgent
           'circle-radius': ['case', ['>', ['get', 'priority'], 0],
-            ['+', 5, ['*', ['get', 'priority'], 1.4]], 7],
+            ['+', 5, ['/', ['get', 'priority'], 11]], 7],
           'circle-color': ['match', ['get', 'status'],
             'confirmed', '#16a34a', 'rejected', '#9ca3af', '#f59e0b'],
           'circle-opacity': ['case', ['get', 'simulated'], 0.6, 0.95],
@@ -448,7 +457,8 @@ export default function App() {
       map.current.getSource('route').setData(r.geojson)
       const how = { foot: '徒步(BRouter)', car: '机动车(OSRM)', offroad: '越野直连(A*)' }[r.profile] || r.profile
       const note = (routeProfileRef.current !== 'offroad' && r.profile === 'offroad') ? '（在线路由不可达，已回退）' : ''
-      setMsg(`路径 ${r.length_m} m · ${how}${note}`)
+      const warn = r.warnings && r.warnings.length ? ` ⚠ ${r.warnings.join('、')}` : ''
+      setMsg(`路径 ${r.length_m} m · ${how}${note}${warn}`)
     } catch (err) {
       setMsg('路由失败：' + err.message)
     }
@@ -648,11 +658,29 @@ export default function App() {
       ring.reduce((a, p) => a + p[1], 0) / ring.length,
     ]
     try {
-      const r = await api.routePriority(actId.current, start, 3)
+      const r = await api.routePriority(actId.current, start, 60)
       map.current.getSource('route').setData(r.geojson)
-      setMsg(`优先级路由：串联 ${r.stops} 个高优先候选 · ${r.length_m} m（从出发点贪心）`)
+      setMsg(`优先级路由：串联 ${r.stops} 个 P1+ 候选 · ${r.length_m} m（从出发点贪心）`)
     } catch (err) {
       setMsg('路由失败（可能没有 ≥3 优先级候选）：' + err.message)
+    }
+  }
+
+  async function setPrio(score) {
+    if (!det) return
+    await api.setPriority(det.id, score)
+    setDet({ ...det, priority: score })
+    load(roleRef.current)
+    setMsg(`发现点 #${det.id} 优先级设为 ${bandOf(score)} (${score})`)
+  }
+
+  async function doFocusArea() {
+    try {
+      const r = await api.focusArea(actId.current, 60)
+      await load(roleRef.current)
+      setMsg(`搜索区已更新：由 ${r.from_candidates} 个 P1+ 候选生成热点子区`)
+    } catch (err) {
+      setMsg('更新搜索区失败（可能无 P1+ 候选）：' + err.message)
     }
   }
 
@@ -742,7 +770,8 @@ export default function App() {
                   <button disabled={!ready} onClick={doDroneSweep} title="按高度决定相机足迹，拉网扫描搜索区并检出候选点">无人机拉网</button>
                 </div>
                 <button disabled={!ready} onClick={doRoutePriority} title="从出发安全区贪心串联高优先级候选点">优先级路由（串高优先候选）</button>
-                <div className="sar-hint">点候选点 → "到达核查" 验证是否为真目标</div>
+                <button disabled={!ready} onClick={doFocusArea} title="按 P1+ 候选聚类生成热点搜索子区（§7.5 搜索区更新）">更新搜索区（聚焦热点）</button>
+                <div className="sar-hint">点候选点 → 改优先级 / 到达核查（是否真目标）</div>
               </>
             )}
           </div>
@@ -808,6 +837,7 @@ export default function App() {
           <span><i style={{ background: '#db2777', borderRadius: '50%' }} />变化</span>
           {scenario === 'sar' && <span><i style={{ background: '#dc2626', borderRadius: '50%' }} />目标</span>}
           {scenario === 'sar' && <span><i style={{ background: '#6b7280', borderRadius: '50%' }} />疑似</span>}
+          {scenario === 'sar' && <span><i style={{ background: '#f97316' }} />热点区</span>}
         </div>
 
         <div className="msg">{msg}</div>
@@ -817,8 +847,17 @@ export default function App() {
         <div className="det-card">
           <b>发现点 #{det.id}</b>
           <div>类别：{det.label} · 置信度 {Number(det.confidence).toFixed(2)}
-            {det.priority > 0 && <> · 优先级 P{det.priority}</>}</div>
+            {det.priority > 0 && <> · 优先级 <b>{bandOf(det.priority)}</b>({det.priority})</>}</div>
           <div>状态：{det.status} · {String(det.simulated) === 'true' ? '模拟/预置' : '真实推理'}</div>
+          {scenario === 'sar' && det.priority > 0 && (
+            <div className="prio-set">
+              <span>改优先级</span>
+              {['P0', 'P1', 'P2', 'P3'].map((b) => (
+                <button key={b} className={bandOf(det.priority) === b ? 'active' : ''}
+                  onClick={() => setPrio(PRIO_SCORE[b])}>{b}</button>
+              ))}
+            </div>
+          )}
           {scenario === 'sar' && (
             <button className="arrive" onClick={arriveAt}>到达核查（是否真目标）</button>
           )}

@@ -19,8 +19,8 @@ router = APIRouter()
 # ---- role-based visibility (MVP simplified) -------------------------------
 ZONES_BY_ROLE = {
     "organizer": None,  # all
-    "search": {"activity", "search", "no_go", "safe", "staging"},
-    "protection": {"activity", "protection", "no_go", "safe", "staging"},
+    "search": {"activity", "search", "hotspot", "no_go", "safe", "staging"},
+    "protection": {"activity", "protection", "hotspot", "no_go", "safe", "staging"},
 }
 TRACK_TEAMS_BY_ROLE = {
     "organizer": None,
@@ -121,12 +121,17 @@ class DroneSweepIn(BaseModel):
 
 
 class PriorityIn(BaseModel):
-    priority: int  # 1..5
+    priority: int  # 0..100 (manual override)
 
 
 class RoutePriorityIn(BaseModel):
     start: list[float]      # [lon,lat]
-    min_priority: int = 1
+    min_priority: int = 60  # score threshold (P1+)
+
+
+class FocusAreaIn(BaseModel):
+    min_priority: int = 60  # cluster candidates at/above this score
+    margin_m: float = 120.0
 
 
 class ArriveIn(BaseModel):
@@ -423,6 +428,26 @@ def _brouter_route(waypoints: list[list[float]], profile: str = "hiking-mountain
     return None, None
 
 
+def _route_warnings(session: Session, activity_id: int, coords: list[list[float]],
+                    length_m: float) -> list[str]:
+    """R4 route feasibility check: crosses no-go / off search area / too long."""
+    zones = session.exec(select(Zone).where(Zone.activity_id == activity_id)).all()
+    no_go = [json.loads(z.polygon_json) for z in zones if z.kind == "no_go"]
+    search = [json.loads(z.polygon_json) for z in zones if z.kind in ("search", "hotspot")]
+    warns: list[str] = []
+    if no_go and any(geo.point_in_any((p[0], p[1]), no_go) for p in coords):
+        warns.append("穿越禁入区")
+    if search and coords:
+        inside = sum(1 for p in coords if geo.point_in_any((p[0], p[1]), search))
+        if inside / len(coords) < 0.5:
+            warns.append("大部分路径偏离搜索区")
+    if len(coords) >= 2:
+        straight = geo.haversine_m(coords[0], coords[-1])
+        if straight > 60 and length_m > 2.6 * straight:
+            warns.append("路径明显过长(>2.6×直线)")
+    return warns
+
+
 @router.post("/activities/{activity_id}/route/roads")
 def route_roads(activity_id: int, body: RoadsIn, session: Session = Depends(get_session)):
     """Multi-waypoint route. profile=foot (BRouter 徒步) / car (OSRM 机动车) /
@@ -457,6 +482,7 @@ def route_roads(activity_id: int, body: RoadsIn, session: Session = Depends(get_
         "roads": used in ("foot", "car"),
         "length_m": round(length, 1),
         "path": coords,
+        "warnings": _route_warnings(session, activity_id, coords, length),
         "geojson": {"type": "Feature", "properties": {"length_m": round(length, 1)},
                     "geometry": {"type": "LineString", "coordinates": coords}},
     }
@@ -557,7 +583,7 @@ def set_priority(detection_id: int, body: PriorityIn, session: Session = Depends
     d = session.get(Detection, detection_id)
     if not d:
         raise HTTPException(404, "detection not found")
-    d.priority = max(1, min(5, body.priority))
+    d.priority = max(0, min(100, body.priority))
     session.add(d)
     session.commit()
     session.refresh(d)
@@ -612,6 +638,35 @@ def sar_status(activity_id: int, session: Session = Depends(get_session)):
         "decoys": len(decoys), "decoys_revealed": sum(1 for m in decoys if m.revealed),
         "complete": a.sar_complete,
     }
+
+
+@router.post("/activities/{activity_id}/sar/focus-area")
+def sar_focus_area(activity_id: int, body: FocusAreaIn, session: Session = Depends(get_session)):
+    """Search-area update (§7.5): build a hotspot sub-zone around the cluster of
+    high-priority candidates (convex hull + buffer). Replaces any prior hotspot."""
+    a = _get_activity(session, activity_id)
+    dets = session.exec(select(Detection).where(Detection.activity_id == activity_id)).all()
+    pts = [[d.lon, d.lat] for d in dets if d.status != "rejected" and d.priority >= body.min_priority]
+    if not pts:
+        raise HTTPException(422, "no candidates at/above the priority threshold")
+    for z in session.exec(select(Zone).where(Zone.activity_id == activity_id,
+                                             Zone.kind == "hotspot")).all():
+        session.delete(z)
+    if len(pts) >= 3:
+        ring = geo.buffer_ring(geo.convex_hull(pts), body.margin_m, a.center_lon, a.center_lat)
+    else:
+        m_lon, m_lat = geo.meters_per_deg(a.center_lat)
+        dlon, dlat = body.margin_m / m_lon, body.margin_m / m_lat
+        xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+        minx, maxx, miny, maxy = min(xs) - dlon, max(xs) + dlon, min(ys) - dlat, max(ys) + dlat
+        ring = [[round(minx, 6), round(miny, 6)], [round(maxx, 6), round(miny, 6)],
+                [round(maxx, 6), round(maxy, 6)], [round(minx, 6), round(maxy, 6)]]
+    z = Zone(activity_id=activity_id, name="热点搜索子区", kind="hotspot",
+             role_owner="search", polygon_json=json.dumps(ring))
+    session.add(z)
+    session.commit()
+    session.refresh(z)
+    return {"created": True, "from_candidates": len(pts), "zone_id": z.id, "polygon": ring}
 
 
 # ---- aggregate state for the map ------------------------------------------

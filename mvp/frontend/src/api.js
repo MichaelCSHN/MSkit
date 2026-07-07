@@ -81,4 +81,14 @@ export const api = {
       body: JSON.stringify({ point }),
     }),
   sarStatus: (id) => j(`${BASE}/activities/${id}/sar/status`),
+  setPriority: (detId, priority) =>
+    j(`${BASE}/detections/${detId}/priority`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ priority }),
+    }),
+  focusArea: (id, min_priority = 60) =>
+    j(`${BASE}/activities/${id}/sar/focus-area`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ min_priority }),
+    }),
 }

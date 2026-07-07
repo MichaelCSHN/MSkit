@@ -15,8 +15,16 @@ def footprint_radius(altitude_m: float, fov_deg: float) -> float:
     return max(10.0, altitude_m * math.tan(math.radians(fov_deg / 2)))
 
 
-def priority_from_conf(conf: float) -> int:
-    return max(1, min(5, round(conf * 5)))
+def priority_score(conf: float, similarity: float | None = None,
+                   ctx: float = 100.0, recency: float = 100.0, manual: float = 0.0) -> int:
+    """Priority 0-100 per docs §7.4 (weighted). similarity/ctx/recency are 0-100."""
+    sim = similarity if similarity is not None else conf * 100.0
+    s = (0.45 * conf * 100.0 + 0.20 * sim + 0.15 * ctx + 0.10 * recency + 0.10 * manual)
+    return max(0, min(100, round(s)))
+
+
+def band(score: int) -> str:
+    return "P0" if score >= 80 else "P1" if score >= 60 else "P2" if score >= 40 else "P3"
 
 
 def _rng(seed: int):
@@ -105,7 +113,7 @@ def detect_markers(path: list[list[float]], markers: list, radius_m: float,
         dlon = (next(rng) - 0.5) * 0.0004
         out.append({
             "marker_id": mk.id, "kind": mk.kind, "label": label,
-            "confidence": conf, "priority": priority_from_conf(conf),
+            "confidence": conf, "priority": priority_score(conf),
             "lat": round(mk.lat + dlat, 6), "lon": round(mk.lon + dlon, 6),
         })
     return out
@@ -126,7 +134,7 @@ def priority_tour(start: list[float], points: list[dict], no_go, c_lon, c_lat):
         # score = distance discounted by priority (prefer near + high priority)
         def cost(p):
             d = geo.haversine_m(cur, [p["lon"], p["lat"]])
-            return d / (1.0 + 0.15 * (p.get("priority", 1)))
+            return d / (1.0 + 0.015 * (p.get("priority", 0)))  # priority is 0-100
         nxt = min(remaining, key=cost)
         seg = geo.astar(tuple(cur), (nxt["lon"], nxt["lat"]), no_go, c_lon, c_lat)
         if len(seg) > 1:
