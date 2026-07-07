@@ -350,7 +350,7 @@ export default function App() {
         sources: {
           sr: {
             type: 'raster',
-            tiles: [`${window.location.origin}/api/sr-tiles/{z}/{x}/{y}.jpg?v=4`],
+            tiles: [`${window.location.origin}/api/sr-tiles/{z}/{x}/{y}.jpg?v=5`],
             tileSize: 256, minzoom: 14, maxzoom: 19,
           },
         },
@@ -880,7 +880,7 @@ export default function App() {
             <button onClick={() => setDroneView(null)} title="关闭">×</button>
           </div>
           <div ref={dvMapEl} className="dv-map" />
-          <div className="dv-cap">{droneView.lat.toFixed(5)}, {droneView.lon.toFixed(5)} · 卫星超分(FSRCNN×4)·滚轮缩放·模拟非真实无人机影像</div>
+          <div className="dv-cap">{droneView.lat.toFixed(5)}, {droneView.lon.toFixed(5)} · 卫星超分(Real-ESRGAN)·滚轮缩放·模拟非真实无人机影像</div>
         </div>
       )}
     </div>

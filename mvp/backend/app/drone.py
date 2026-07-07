@@ -94,30 +94,50 @@ def _lanczos(img: Image.Image, target: int) -> Image.Image:
     return big.filter(ImageFilter.UnsharpMask(radius=2, percent=150, threshold=2))
 
 
-def _sr_upscale(img: Image.Image, target: int) -> Image.Image:
-    """Upscale to target x target (learned SR when it looks sane, else LANCZOS).
+def _mad(a: Image.Image, b: Image.Image) -> float:
+    import numpy as np
+    return float(np.abs(np.asarray(a, dtype=np.int16) - np.asarray(b, dtype=np.int16)).mean())
 
-    A per-tile sanity check vs a plain LANCZOS baseline catches occasional
-    dnn_superres garbage (streaks/grid) and falls back automatically.
-    """
+
+def _sr_upscale(img: Image.Image, target: int) -> Image.Image:
+    """Upscale to target x target. Tries Real-ESRGAN (sharpest) -> FSRCNN ->
+    LANCZOS, with a per-tile sanity check that rejects garbage automatically."""
+    plain = img.resize((target, target), Image.LANCZOS)
+
+    # 1) Real-ESRGAN (learned, sharpest) — differs more from LANCZOS, so looser guard
+    try:
+        from . import realesrgan
+        out = realesrgan.upscale4(img)
+        if out is not None:
+            if out.size != (target, target):
+                out = out.resize((target, target), Image.LANCZOS)
+            if _mad(out, plain) < 70:
+                return out.filter(ImageFilter.UnsharpMask(radius=2, percent=110, threshold=1))
+    except Exception:
+        pass
+
+    # 2) FSRCNN (OpenCV) — fast fallback
     sr = _load_sr()
     if sr:
         try:
             import cv2  # type: ignore
-            import numpy as np  # type: ignore
-            bgr = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)   # contiguous
-            up = sr.upsample(bgr)                                   # x4 (learned)
+            bgr = cv2.cvtColor(_np_rgb(img), cv2.COLOR_RGB2BGR)     # contiguous
+            up = sr.upsample(bgr)
             out = Image.fromarray(cv2.cvtColor(up, cv2.COLOR_BGR2RGB))
             if out.size != (target, target):
                 out = out.resize((target, target), Image.LANCZOS)
-            plain = img.resize((target, target), Image.LANCZOS)     # unsharpened baseline
-            mad = float(np.abs(np.asarray(out, dtype=np.int16)
-                               - np.asarray(plain, dtype=np.int16)).mean())
-            if mad < 45:                     # coherent -> keep learned SR, then sharpen
+            if _mad(out, plain) < 45:
                 return out.filter(ImageFilter.UnsharpMask(radius=2, percent=160, threshold=1))
         except Exception:
             pass
-    return _lanczos(img, target)            # garbage or unavailable -> LANCZOS
+
+    # 3) LANCZOS + sharpen
+    return _lanczos(img, target)
+
+
+def _np_rgb(img: Image.Image):
+    import numpy as np
+    return np.array(img.convert("RGB"))
 
 
 # ---- endpoints ------------------------------------------------------------
