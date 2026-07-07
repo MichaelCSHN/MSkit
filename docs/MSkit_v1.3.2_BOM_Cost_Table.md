@@ -6,14 +6,14 @@
 
 ## 1. 三方叙事下的 BOM 口径
 
-MSkit 的 BOM 不应只按硬件箱体理解，而应服务于黑 / 红 / 蓝三方实景智能规控平台：
+MSkit 的 BOM 不应只按硬件箱体理解，而应服务于组织 / 搜索 / 防护三方实景智能规控平台：
 
 | 层级 | 三方用途 | 硬件口径 | BOM 处理 |
 |------|----------|----------|----------|
-| MVP 路演版 | 展示黑方 PNT/规划、红方 GOD/COD、蓝方 CCD | 笔记本 + 无人机遥控器 + 无人机，或笔记本 + 无人机/离线素材 | 不纳入正式产品 BOM；按演示设备/样机费用单列 |
-| Backpack | 红方搜索小队 / 蓝方巡查小队的轻量外场节点 | Orin Nano + 摄像头/热成像可选 + 本地地图/AI | 适合单兵/小队节点成本建模 |
-| Team | 黑方裁判/调度站，或红/蓝小队现场 Hub | Orin NX + 更高存储/显示/电源能力 | 适合活动组织、训练、赛事和安保团队版本 |
-| Field Pro/Max | 黑方全局调度/大型活动中心 | AGX Orin + 更高算力/存储/多路接入 | 适合大型 Milsim、安保训练、应急演练和工业巡检 |
+| MVP 路演版 | 展示组织方 定位态势/规划、搜索方 目标检测/变化检测、防护方 覆盖规划 | 笔记本 + 无人机遥控器 + 无人机，或笔记本 + 无人机/离线素材 | 不纳入正式产品 BOM；按演示设备/样机费用单列 |
+| Backpack | 搜索方搜索小队 / 防护方巡查小队的轻量外场节点 | Orin Nano + 摄像头/热成像可选 + 本地地图/AI | 适合单兵/小队节点成本建模 |
+| Team | 组织方裁判/调度站，或搜索/防护小队现场 Hub | Orin NX + 更高存储/显示/电源能力 | 适合活动组织、训练、赛事和安保团队版本 |
+| Field Pro/Max | 组织方全局调度/大型活动中心 | AGX Orin + 更高算力/存储/多路接入 | 适合大型 Milsim、安保训练、应急演练和工业巡检 |
 
 > MVP 的首要目标是验证三方叙事和软件闭环，不验证正式硬件 BOM。正式 BOM 用于 v1.4 工程样机、Pilot Batch 和量产经济性分析。
 
@@ -36,11 +36,11 @@ MSkit 的 BOM 不应只按硬件箱体理解，而应服务于黑 / 红 / 蓝三
 
 | 变体 | 三方典型用途 | 计算模块 | 热成像 | 基础 BOM | 目标零售价 | BOM-only 毛利率 | 备注 |
 |------|--------------|----------|--------|----------|-----------|----------------|------|
-| Backpack Base | 红方搜索 / 蓝方巡查轻量节点 | Orin Nano 8GB | 无 | $1,844 | $7,999 | ~77% | 标准民用版本优先 Li-ion/LiFePO4 电池包 |
-| Backpack Thermal | 红方搜救 / 夜间搜索 / 蓝方边界巡查 | Orin Nano 8GB | FLIR Boson 640 | $5,952 | $11,999 | ~50% | 热成像占 BOM 主要部分 |
-| Team Base（原 Command Base） | 黑方裁判/调度站，或红/蓝小队 Hub | Orin NX 16GB | 无 | $2,680 | $14,999 | ~82% | 团队/训练/赛事版本 |
-| Team Thermal（原 Command Thermal） | 黑方调度 + 热成像接入，或安保训练 Hub | Orin NX 16GB | FLIR Boson 640 | $6,788 | $17,999 | ~62% | 需出口分类确认 |
-| Field Pro / Max | 大型活动黑方全局中心 | AGX Orin 32/64GB | Boson+ 640 | TBD | $24,999–$34,999 | TBD | 适合大型 Milsim、安保训练、应急演练 |
+| Backpack Base | 搜索方搜索 / 防护方巡查轻量节点 | Orin Nano 8GB | 无 | $1,844 | $7,999 | ~77% | 标准民用版本优先 Li-ion/LiFePO4 电池包 |
+| Backpack Thermal | 搜索方搜救 / 夜间搜索 / 防护方边界巡查 | Orin Nano 8GB | FLIR Boson 640 | $5,952 | $11,999 | ~50% | 热成像占 BOM 主要部分 |
+| Team Base（原 Command Base） | 组织方裁判/调度站，或搜索/防护小队 Hub | Orin NX 16GB | 无 | $2,680 | $14,999 | ~82% | 团队/训练/赛事版本 |
+| Team Thermal（原 Command Thermal） | 组织方调度 + 热成像接入，或安保训练 Hub | Orin NX 16GB | FLIR Boson 640 | $6,788 | $17,999 | ~62% | 需出口分类确认 |
+| Field Pro / Max | 大型活动组织方全局中心 | AGX Orin 32/64GB | Boson+ 640 | TBD | $24,999–$34,999 | TBD | 适合大型 Milsim、安保训练、应急演练 |
 
 > **注意**：BOM-only 毛利率不能用于判断首批 50 套是否盈利。若把 $8,000/套研发摊销（$400k/50）+ 20% 渠道 + 5% 售后计入首批，Backpack Base / Thermal 在当前零售价下亏损。
 
@@ -50,12 +50,12 @@ MSkit 的 BOM 不应只按硬件箱体理解，而应服务于黑 / 红 / 蓝三
 
 | 场景 | 推荐组合 | 说明 |
 |------|----------|------|
-| Hide and Seek 实景对抗赛 | MVP：笔记本 + 无人机；正式版：1 台 Team + 若干 Backpack | 黑方用 Team 统筹，红/蓝小队可用 Backpack 作为外场节点 |
-| 大型 Milsim 实景游戏 | 1 台 Field 或 Team + 多台 Backpack | 黑方全局裁判/调度，红蓝双方分布式节点 |
-| 安保训练 | 1 台 Team Thermal + 若干 Backpack Base/Thermal | 黑方为教官/评估员，红方巡检，蓝方防护和值守 |
-| 野外搜救 | 1 台 Team 或 Backpack Thermal + 无人机素材导入 | 黑方搜救协调，红方搜索；蓝方可选营地/安全区 |
-| 大型活动安保 | 1 台 Team + 多台 Backpack | 黑方主办/安保调度，蓝方值守巡查，红方可作为巡检队 |
-| 工业/农林巡检 | 1 台 Team + 若干 Backpack | 黑方运营，红方巡检，蓝方维护边界和重点设施 |
+| Hide and Seek 实景对抗赛 | MVP：笔记本 + 无人机；正式版：1 台 Team + 若干 Backpack | 组织方用 Team 统筹，搜索/防护小队可用 Backpack 作为外场节点 |
+| 大型 Milsim 实景游戏 | 1 台 Field 或 Team + 多台 Backpack | 组织方全局裁判/调度，搜索/防护双方分布式节点 |
+| 安保训练 | 1 台 Team Thermal + 若干 Backpack Base/Thermal | 组织方为教官/评估员，搜索方巡检，防护方负责防护和值守 |
+| 野外搜救 | 1 台 Team 或 Backpack Thermal + 无人机素材导入 | 组织方搜救协调，搜索方搜索；防护方可选营地/安全区 |
+| 大型活动安保 | 1 台 Team + 多台 Backpack | 组织方主办/安保调度，防护方值守巡查，搜索方可作为巡检队 |
+| 工业/农林巡检 | 1 台 Team + 若干 Backpack | 组织方运营，搜索方巡检，防护方维护边界和重点设施 |
 
 ---
 
@@ -71,7 +71,7 @@ MSkit 的 BOM 不应只按硬件箱体理解，而应服务于黑 / 红 / 蓝三
 | GNSS RTK、IMU、气压计、多摄像头同步相关器件 | C. Edge Platform & Device Firmware | OP-12 归 C 包，坐标系/时间同步由内部冻结 |
 | 可见光/热成像摄像头 | E. AI Data & Model Optimization + B/LEG | E 包使用样本与模型；B/LEG 提供出口/合规输入；采购由 SCM 管控 |
 | 地图/报告/UI 软件成本 | D. Application Software | 软件外协成本作为研发/NRE，不计入硬件 BOM |
-| 三方角色、PNT、GOD/COD、CCD 软件能力 | D + E + 内部核心包 | 三方流程、地图/PNT/CCD 属 D；GOD/COD 属 E；角色边界和合规由内部冻结 |
+| 三方角色、定位态势、目标检测/变化检测、覆盖规划 软件能力 | D + E + 内部核心包 | 三方流程、地图/定位态势/覆盖规划 属 D；目标检测/变化检测 属 E；角色边界和合规由内部冻结 |
 | 数据标注、训练、模型优化 | E. AI Data & Model Optimization | 年度软件/数据成本，不计入基础硬件 BOM |
 | 工装、治具、老化测试设备、出厂测试夹具 | F. Manufacturing & Test Fixtures | NRE 或制造准备费，不计入单套基础 BOM，量产后可摊销 |
 | 认证、法务、SCA/SBOM、许可证审计 | B + OP-11 + 内部 LEG | 作为认证/合规/年度工具费用单列 |
