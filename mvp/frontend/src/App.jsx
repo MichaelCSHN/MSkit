@@ -306,21 +306,25 @@ export default function App() {
         m.on('mouseleave', lyr, () => { m.getCanvas().style.cursor = '' })
       }
 
-      // load activity + initial state
-      try {
-        const acts = await api.activities()
-        if (!acts.length) { setMsg('后端无活动，请点“重置演示”或检查播种'); return }
-        const a = acts[0]
-        actId.current = a.id
-        m.jumpTo({ center: [a.center_lon, a.center_lat], zoom: a.zoom })
-        setReady(true)
-        await load('organizer')
-        m.resize()
-        setTimeout(() => m.resize(), 300)
-      } catch (err) {
-        console.error(err)
-        setMsg('❌ 无法连接后端（:8000）。请先启动后端，再刷新本页。')
+      // load activity + initial state; auto-retry until the backend is reachable
+      const bootstrap = async () => {
+        try {
+          const acts = await api.activities()
+          if (!acts.length) { setMsg('后端无活动，请点“重置演示”或检查播种'); return }
+          const a = acts[0]
+          actId.current = a.id
+          m.jumpTo({ center: [a.center_lon, a.center_lat], zoom: a.zoom })
+          setReady(true)
+          await load('organizer')
+          m.resize()
+          setTimeout(() => m.resize(), 300)
+        } catch (err) {
+          console.error(err)
+          setMsg('❌ 无法连接后端(:8000)，5 秒后自动重试…（请确认后端已启动）')
+          setTimeout(bootstrap, 5000)
+        }
       }
+      bootstrap()
     })
 
     return () => m.remove()
