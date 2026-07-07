@@ -90,17 +90,20 @@ def _load_sr():
 
 
 def _sr_upscale(img: Image.Image, target: int) -> Image.Image:
-    """Upscale a small crop to target x target pixels."""
+    """Upscale a tile to target x target pixels (learned SR when available)."""
     sr = _load_sr()
     if sr:
         try:
+            import cv2  # type: ignore
             import numpy as np  # type: ignore
-            arr = np.asarray(img)[:, :, ::-1]           # RGB -> BGR
-            up = sr.upsample(arr)                        # x4 (learned)
-            out = Image.fromarray(up[:, :, ::-1])        # BGR -> RGB
+            # cvtColor returns a C-contiguous array; a reversed-stride view
+            # (arr[:,:,::-1]) makes dnn_superres emit streak/grid garbage.
+            bgr = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+            up = sr.upsample(bgr)                                    # x4 (learned)
+            out = Image.fromarray(cv2.cvtColor(up, cv2.COLOR_BGR2RGB))
             if out.size != (target, target):
                 out = out.resize((target, target), Image.LANCZOS)
-            return out.filter(ImageFilter.UnsharpMask(radius=1, percent=80, threshold=1))
+            return out.filter(ImageFilter.UnsharpMask(radius=1, percent=70, threshold=1))
         except Exception:
             pass
     big = img.resize((target, target), Image.LANCZOS)
@@ -144,7 +147,8 @@ def sr_tile(z: int, x: int, y: int):
         img = big.crop((cx * TILE, cy * TILE, cx * TILE + TILE, cy * TILE + TILE))
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85)
-    return Response(buf.getvalue(), media_type="image/jpeg")
+    return Response(buf.getvalue(), media_type="image/jpeg",
+                    headers={"Cache-Control": "no-cache"})
 
 
 @router.get("/drone-image")
