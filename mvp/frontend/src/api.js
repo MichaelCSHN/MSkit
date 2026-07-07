@@ -31,6 +31,11 @@ export const api = {
       body: JSON.stringify({ zone_kind, count }),
     }),
   reset: () => j(`${BASE}/demo/reset`, { method: 'POST' }),
+  addZone: (id, body) =>
+    j(`${BASE}/activities/${id}/zones`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
   route: (id, start, goal) =>
     j(`${BASE}/activities/${id}/route`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

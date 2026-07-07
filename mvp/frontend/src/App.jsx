@@ -18,23 +18,39 @@ const TILE_URL = USE_OFFLINE_TILES
   ? `${window.location.origin}/api/tiles/{z}/{x}/{y}.png`
   : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 
+// Esri World Imagery: free satellite tiles, WGS-84 (aligns with GPS/OSM).
+// Note tile template order is {z}/{y}/{x} for ArcGIS.
+const SAT_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+
 const RASTER_STYLE = {
   version: 8,
   sources: {
     osm: {
-      type: 'raster',
-      tiles: [TILE_URL],
-      tileSize: 256,
+      type: 'raster', tiles: [TILE_URL], tileSize: 256,
       attribution: '© OpenStreetMap contributors',
+    },
+    sat: {
+      type: 'raster', tiles: [SAT_URL], tileSize: 256,
+      attribution: 'Esri World Imagery',
     },
   },
   layers: [
     // Always-present background so the canvas is never blank, even with no
-    // network / blocked tiles. OSM streets (if reachable) draw on top.
+    // network / blocked tiles. Street/satellite raster draws on top.
     { id: 'bg', type: 'background', paint: { 'background-color': '#e8eef3' } },
     { id: 'osm', type: 'raster', source: 'osm' },
+    { id: 'sat', type: 'raster', source: 'sat', layout: { visibility: 'none' } },
   ],
 }
+
+const ZONE_KINDS = [
+  { kind: 'activity', label: '活动区', owner: 'organizer' },
+  { kind: 'search', label: '搜索区', owner: 'search' },
+  { kind: 'protection', label: '防护区', owner: 'protection' },
+  { kind: 'no_go', label: '禁入区', owner: 'organizer' },
+  { kind: 'safe', label: '安全区', owner: 'organizer' },
+]
+const kindLabel = (k) => (ZONE_KINDS.find((z) => z.kind === k) || {}).label || k
 
 const EMPTY = { type: 'FeatureCollection', features: [] }
 
@@ -45,6 +61,7 @@ export default function App() {
   const modeRef = useRef('none')
   const routeStart = useRef(null)
   const actId = useRef(null)
+  const drawPts = useRef([])
 
   const [ready, setReady] = useState(false)
   const [role, setRole] = useState('organizer')
@@ -52,6 +69,9 @@ export default function App() {
   const [counts, setCounts] = useState(null)
   const [msg, setMsg] = useState('加载中…')
   const [det, setDet] = useState(null)
+  const [basemap, setBasemap] = useState('street')
+  const [drawKind, setDrawKind] = useState('activity')
+  const [drawN, setDrawN] = useState(0)
 
   // init map + data
   useEffect(() => {
@@ -65,7 +85,7 @@ export default function App() {
     m.addControl(new maplibregl.NavigationControl(), 'top-right')
 
     m.on('load', async () => {
-      for (const id of ['zones', 'tracks', 'dets', 'cov-obs', 'cov-gaps', 'route']) {
+      for (const id of ['zones', 'tracks', 'dets', 'cov-obs', 'cov-gaps', 'route', 'draw']) {
         m.addSource(id, { type: 'geojson', data: EMPTY })
       }
       m.addLayer({
@@ -111,6 +131,20 @@ export default function App() {
         id: 'route-line', type: 'line', source: 'route',
         paint: { 'line-color': '#7c3aed', 'line-width': 4 },
       })
+      // in-progress zone drawing (organizer)
+      m.addLayer({
+        id: 'draw-fill', type: 'fill', source: 'draw',
+        paint: { 'fill-color': '#4f46e5', 'fill-opacity': 0.15 },
+      })
+      m.addLayer({
+        id: 'draw-line', type: 'line', source: 'draw',
+        paint: { 'line-color': '#4f46e5', 'line-width': 2, 'line-dasharray': [2, 1] },
+      })
+      m.addLayer({
+        id: 'draw-pts', type: 'circle', source: 'draw',
+        filter: ['==', ['geometry-type'], 'Point'],
+        paint: { 'circle-radius': 4, 'circle-color': '#4f46e5', 'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5 },
+      })
       // change detections (COD) — magenta, drawn under object detections
       m.addLayer({
         id: 'det-change', type: 'circle', source: 'dets',
@@ -134,6 +168,12 @@ export default function App() {
 
       m.on('click', (e) => {
         if (modeRef.current === 'route') return onRouteClick(e.lngLat)
+        if (modeRef.current === 'draw') {
+          drawPts.current.push([Number(e.lngLat.lng.toFixed(6)), Number(e.lngLat.lat.toFixed(6))])
+          renderDraw()
+          setDrawN(drawPts.current.length)
+          return
+        }
         const f = m.queryRenderedFeatures(e.point, { layers: ['det-circle', 'det-change'] })
         if (f.length) { setDet(f[0].properties); return }
         setDet(null)
@@ -268,6 +308,63 @@ export default function App() {
     setMsg(`发现点 #${det.id} 标记为 ${status}`)
   }
 
+  function switchBasemap(b) {
+    setBasemap(b)
+    const m = map.current
+    if (!m) return
+    m.setLayoutProperty('osm', 'visibility', b === 'street' ? 'visible' : 'none')
+    m.setLayoutProperty('sat', 'visibility', b === 'sat' ? 'visible' : 'none')
+  }
+
+  function renderDraw() {
+    const pts = drawPts.current
+    const feats = []
+    if (pts.length >= 3)
+      feats.push({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [[...pts, pts[0]]] } })
+    if (pts.length >= 2)
+      feats.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: pts } })
+    for (const p of pts) feats.push({ type: 'Feature', geometry: { type: 'Point', coordinates: p } })
+    map.current.getSource('draw').setData({ type: 'FeatureCollection', features: feats })
+  }
+
+  function startDraw() {
+    modeRef.current = 'draw'
+    setMode('draw')
+    routeStart.current = null
+    drawPts.current = []
+    setDrawN(0)
+    renderDraw()
+    setMsg(`绘制「${kindLabel(drawKind)}」：点击地图逐个加顶点，≥3 个后点“完成”`)
+  }
+
+  function cancelDraw() {
+    modeRef.current = 'none'
+    setMode('none')
+    drawPts.current = []
+    setDrawN(0)
+    renderDraw()
+    setMsg('已取消绘制')
+  }
+
+  async function finishDraw() {
+    if (drawPts.current.length < 3) { setMsg('至少需要 3 个顶点'); return }
+    const kd = ZONE_KINDS.find((z) => z.kind === drawKind)
+    try {
+      await api.addZone(actId.current, {
+        name: kd.label, kind: kd.kind, role_owner: kd.owner, polygon: drawPts.current,
+      })
+      modeRef.current = 'none'
+      setMode('none')
+      drawPts.current = []
+      setDrawN(0)
+      renderDraw()
+      await load(roleRef.current)
+      setMsg(`已新增「${kd.label}」`)
+    } catch (err) {
+      setMsg('保存区域失败：' + err.message)
+    }
+  }
+
   return (
     <div className="app">
       <div ref={mapEl} className="map"
@@ -284,6 +381,12 @@ export default function App() {
               {r.label}
             </button>
           ))}
+        </div>
+
+        <div className="basemap">
+          <span>底图</span>
+          <button className={basemap === 'street' ? 'active' : ''} onClick={() => switchBasemap('street')}>街道</button>
+          <button className={basemap === 'sat' ? 'active' : ''} onClick={() => switchBasemap('sat')}>卫星</button>
         </div>
 
         {counts && (
@@ -310,6 +413,28 @@ export default function App() {
           </button>
           <button disabled={!ready} className="reset" onClick={doReset}>重置演示</button>
         </div>
+
+        {role === 'organizer' && (
+          <div className="draw">
+            <div className="draw-head">建区（组织方）</div>
+            <div className="draw-kinds">
+              {ZONE_KINDS.map((z) => (
+                <button key={z.kind} disabled={mode === 'draw'}
+                  className={drawKind === z.kind ? 'k active' : 'k'}
+                  onClick={() => setDrawKind(z.kind)}>{z.label}</button>
+              ))}
+            </div>
+            {mode !== 'draw' ? (
+              <button disabled={!ready} onClick={startDraw}>绘制「{kindLabel(drawKind)}」</button>
+            ) : (
+              <div className="draw-live">
+                <span>顶点 {drawN}</span>
+                <button className="ok" disabled={drawN < 3} onClick={finishDraw}>完成</button>
+                <button onClick={cancelDraw}>取消</button>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="legend">
           <span><i style={{ background: '#3b82f6' }} />活动区</span>
