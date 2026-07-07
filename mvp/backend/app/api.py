@@ -43,6 +43,15 @@ def _get_activity(session: Session, activity_id: int) -> Activity:
 
 
 # ---- request bodies -------------------------------------------------------
+class ResetIn(BaseModel):
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+
+
+class RoadsIn(BaseModel):
+    waypoints: list[list[float]]  # [[lon,lat], ...] >=2
+
+
 class ActivityIn(BaseModel):
     name: str
     scenario: str = "hide_and_seek"
@@ -131,15 +140,18 @@ def health():
 
 
 @router.post("/demo/reset")
-def demo_reset(session: Session = Depends(get_session)):
-    """Wipe all data and re-seed the demo activity (for repeatable pitches)."""
+def demo_reset(body: ResetIn | None = None, session: Session = Depends(get_session)):
+    """Wipe all data and re-seed the demo activity (for repeatable pitches).
+    Optional {lat,lon} centers the activity at the current location."""
     from sqlmodel import SQLModel
     from .db import engine
-    from .seed import seed_if_empty
+    from .seed import seed_if_empty, LAT0, LON0
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
-    aid = seed_if_empty()
-    return {"reset": True, "activity_id": aid}
+    lat = (body.lat if body and body.lat is not None else LAT0)
+    lon = (body.lon if body and body.lon is not None else LON0)
+    aid = seed_if_empty(lat, lon)
+    return {"reset": True, "activity_id": aid, "center": [lon, lat]}
 
 
 @router.get("/activities")
@@ -369,6 +381,54 @@ def route(activity_id: int, body: RouteIn, session: Session = Depends(get_sessio
     }
 
 
+def _osrm_route(waypoints: list[list[float]]):
+    """Snap a multi-waypoint route to roads via the public OSRM demo server.
+    Returns (coords[[lon,lat]], distance_m) or (None, None) on failure."""
+    import urllib.request
+    coords = ";".join(f"{p[0]},{p[1]}" for p in waypoints)
+    url = (f"https://router.project-osrm.org/route/v1/driving/{coords}"
+           f"?overview=full&geometries=geojson")
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "MSkitMVP/0.1"})
+        with urllib.request.urlopen(req, timeout=7) as r:
+            data = json.loads(r.read())
+        if data.get("code") == "Ok" and data.get("routes"):
+            rt = data["routes"][0]
+            return rt["geometry"]["coordinates"], rt.get("distance")
+    except Exception:
+        pass
+    return None, None
+
+
+@router.post("/activities/{activity_id}/route/roads")
+def route_roads(activity_id: int, body: RoadsIn, session: Session = Depends(get_session)):
+    """Multi-waypoint route snapped to real roads (OSRM); falls back to
+    free-space A* (avoiding no-go zones) if the routing service is unreachable."""
+    a = _get_activity(session, activity_id)
+    wps = body.waypoints
+    if len(wps) < 2:
+        raise HTTPException(400, "need >= 2 waypoints")
+    coords, dist = _osrm_route(wps)
+    if coords:
+        length = dist if dist is not None else sum(
+            geo.haversine_m(coords[i], coords[i + 1]) for i in range(len(coords) - 1))
+    else:
+        no_go = _no_go_polys(session, activity_id)
+        coords = [wps[0]]
+        for i in range(len(wps) - 1):
+            seg = geo.astar(tuple(wps[i]), tuple(wps[i + 1]), no_go, a.center_lon, a.center_lat)
+            coords.extend(seg[1:])
+        length = sum(geo.haversine_m(coords[i], coords[i + 1]) for i in range(len(coords) - 1))
+    return {
+        "snapped": bool(dist is not None or coords),
+        "roads": coords is not None and dist is not None,
+        "length_m": round(length, 1),
+        "path": coords,
+        "geojson": {"type": "Feature", "properties": {"length_m": round(length, 1)},
+                    "geometry": {"type": "LineString", "coordinates": coords}},
+    }
+
+
 # ---- SAR (search & rescue) Phase 1 ----------------------------------------
 def _search_ring(session: Session, activity_id: int):
     z = session.exec(select(Zone).where(Zone.activity_id == activity_id,
@@ -377,15 +437,18 @@ def _search_ring(session: Session, activity_id: int):
 
 
 @router.post("/demo/sar")
-def demo_sar(session: Session = Depends(get_session)):
-    """Reset to a fresh SAR scenario (organizer + search)."""
+def demo_sar(body: ResetIn | None = None, session: Session = Depends(get_session)):
+    """Reset to a fresh SAR scenario (organizer + search).
+    Optional {lat,lon} centers it at the current location."""
     from sqlmodel import SQLModel
     from .db import engine
-    from .seed import seed_sar
+    from .seed import seed_sar, LAT0, LON0
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
-    aid = seed_sar()
-    return {"reset": True, "scenario": "sar", "activity_id": aid}
+    lat = (body.lat if body and body.lat is not None else LAT0)
+    lon = (body.lon if body and body.lon is not None else LON0)
+    aid = seed_sar(lat, lon)
+    return {"reset": True, "scenario": "sar", "activity_id": aid, "center": [lon, lat]}
 
 
 @router.post("/activities/{activity_id}/sar/place-targets")
@@ -565,14 +628,23 @@ def state(activity_id: int, role: str = "organizer", session: Session = Depends(
         "geometry": {"type": "Point", "coordinates": [d.lon, d.lat]},
     } for d in dets]
 
+    # SAR ground-truth markers (organizer-placed target/decoys), visible to all
+    marker_rows = session.exec(select(Marker).where(Marker.activity_id == activity_id)).all()
+    marker_features = [{
+        "type": "Feature",
+        "properties": {"id": mk.id, "kind": mk.kind, "revealed": mk.revealed},
+        "geometry": {"type": "Point", "coordinates": [mk.lon, mk.lat]},
+    } for mk in marker_rows]
+
     return {
         "activity": a,
         "role": role,
         "zones": {"type": "FeatureCollection", "features": zone_features},
         "tracks": {"type": "FeatureCollection", "features": track_features},
         "detections": {"type": "FeatureCollection", "features": det_features},
+        "markers": {"type": "FeatureCollection", "features": marker_features},
         "counts": {"zones": len(zone_features), "tracks": len(track_features),
-                   "detections": len(det_features),
+                   "detections": len(det_features), "markers": len(marker_features),
                    "detections_simulated": sum(1 for d in dets if d.simulated),
                    "detections_real": sum(1 for d in dets if not d.simulated)},
     }

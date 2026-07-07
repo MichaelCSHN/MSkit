@@ -1,6 +1,7 @@
-"""Seed a demo Hide-and-Seek activity so the app has content on first run.
+"""Seed demo activities.
 
-Idempotent: does nothing if any activity already exists.
+Both seeders accept an optional center (lat, lon) so the organizer can start
+the activity at the current location. Idempotent for hide-and-seek.
 """
 from __future__ import annotations
 
@@ -11,7 +12,7 @@ from .db import engine
 from .models import Activity, Zone, Track, TrackPoint, Detection
 from .services import detect
 
-LAT0, LON0 = 30.2500, 120.1300  # demo center
+LAT0, LON0 = 30.2500, 120.1300  # fallback demo center
 
 
 def _rect(cx, cy, w, h):
@@ -19,33 +20,32 @@ def _rect(cx, cy, w, h):
     return [[cx - w, cy - h], [cx + w, cy - h], [cx + w, cy + h], [cx - w, cy + h]]
 
 
-def seed_if_empty() -> int | None:
+def seed_if_empty(center_lat: float = LAT0, center_lon: float = LON0) -> int | None:
+    cy, cx = center_lat, center_lon
     with Session(engine) as s:
         if s.exec(select(Activity)).first():
             return None
 
         a = Activity(name="Hide and Seek 演示场", scenario="hide_and_seek",
-                     center_lat=LAT0, center_lon=LON0, zoom=15.5)
+                     center_lat=cy, center_lon=cx, zoom=15.5)
         s.add(a)
         s.commit()
         s.refresh(a)
 
-        zones = [
+        s.add_all([
             Zone(activity_id=a.id, name="活动区", kind="activity", role_owner="organizer",
-                 polygon_json=json.dumps(_rect(LON0, LAT0, 0.0090, 0.0060))),
+                 polygon_json=json.dumps(_rect(cx, cy, 0.0090, 0.0060))),
             Zone(activity_id=a.id, name="搜索区", kind="search", role_owner="search",
-                 polygon_json=json.dumps(_rect(LON0 - 0.0040, LAT0, 0.0040, 0.0050))),
+                 polygon_json=json.dumps(_rect(cx - 0.0040, cy, 0.0040, 0.0050))),
             Zone(activity_id=a.id, name="防护/隐藏区", kind="protection", role_owner="protection",
-                 polygon_json=json.dumps(_rect(LON0 + 0.0045, LAT0, 0.0035, 0.0045))),
+                 polygon_json=json.dumps(_rect(cx + 0.0045, cy, 0.0035, 0.0045))),
             Zone(activity_id=a.id, name="禁入区", kind="no_go", role_owner="organizer",
-                 polygon_json=json.dumps(_rect(LON0, LAT0 + 0.0010, 0.0010, 0.0018))),
+                 polygon_json=json.dumps(_rect(cx, cy + 0.0010, 0.0010, 0.0018))),
             Zone(activity_id=a.id, name="安全区", kind="safe", role_owner="organizer",
-                 polygon_json=json.dumps(_rect(LON0 - 0.0075, LAT0 - 0.0045, 0.0012, 0.0010))),
-        ]
-        s.add_all(zones)
+                 polygon_json=json.dumps(_rect(cx - 0.0075, cy - 0.0045, 0.0012, 0.0010))),
+        ])
         s.commit()
 
-        # search-side sweep track (zigzag) inside the search zone
         tr = Track(activity_id=a.id, name="搜索方扫描航迹", team="search", source="gpx")
         s.add(tr)
         s.commit()
@@ -53,8 +53,8 @@ def seed_if_empty() -> int | None:
         seq = 0
         rows = 6
         for r in range(rows):
-            lat = LAT0 - 0.0045 + r * (0.0090 / (rows - 1))
-            lon_a, lon_b = LON0 - 0.0078, LON0 - 0.0002
+            lat = cy - 0.0045 + r * (0.0090 / (rows - 1))
+            lon_a, lon_b = cx - 0.0078, cx - 0.0002
             xs = [lon_a, lon_b] if r % 2 == 0 else [lon_b, lon_a]
             for lon in xs:
                 s.add(TrackPoint(track_id=tr.id, seq=seq, lat=round(lat, 6), lon=round(lon, 6)))
@@ -71,27 +71,27 @@ def seed_if_empty() -> int | None:
         return a.id
 
 
-def seed_sar() -> int:
-    """Create a fresh SAR activity (organizer+search only): activity zone,
-    search zone, two safe zones (start/evacuation), one no-go. No targets yet
-    (organizer places them as an action)."""
+def seed_sar(center_lat: float = LAT0, center_lon: float = LON0) -> int:
+    """Fresh SAR activity (organizer + search): activity zone, search zone,
+    two safe zones (start/evacuation), one no-go. Targets placed as an action."""
+    cy, cx = center_lat, center_lon
     with Session(engine) as s:
         a = Activity(name="野外搜救 演示场", scenario="sar",
-                     center_lat=LAT0, center_lon=LON0, zoom=15.0)
+                     center_lat=cy, center_lon=cx, zoom=15.0)
         s.add(a)
         s.commit()
         s.refresh(a)
         s.add_all([
             Zone(activity_id=a.id, name="活动区", kind="activity", role_owner="organizer",
-                 polygon_json=json.dumps(_rect(LON0, LAT0, 0.0100, 0.0070))),
+                 polygon_json=json.dumps(_rect(cx, cy, 0.0100, 0.0070))),
             Zone(activity_id=a.id, name="重点搜索区", kind="search", role_owner="search",
-                 polygon_json=json.dumps(_rect(LON0 + 0.0010, LAT0, 0.0055, 0.0045))),
+                 polygon_json=json.dumps(_rect(cx + 0.0010, cy, 0.0055, 0.0045))),
             Zone(activity_id=a.id, name="出发点(安全区1)", kind="safe", role_owner="organizer",
-                 polygon_json=json.dumps(_rect(LON0 - 0.0082, LAT0 - 0.0055, 0.0012, 0.0010))),
+                 polygon_json=json.dumps(_rect(cx - 0.0082, cy - 0.0055, 0.0012, 0.0010))),
             Zone(activity_id=a.id, name="撤离点(安全区2)", kind="safe", role_owner="organizer",
-                 polygon_json=json.dumps(_rect(LON0 + 0.0082, LAT0 + 0.0055, 0.0012, 0.0010))),
+                 polygon_json=json.dumps(_rect(cx + 0.0082, cy + 0.0055, 0.0012, 0.0010))),
             Zone(activity_id=a.id, name="禁入区(危险)", kind="no_go", role_owner="organizer",
-                 polygon_json=json.dumps(_rect(LON0 + 0.0010, LAT0 - 0.0030, 0.0010, 0.0012))),
+                 polygon_json=json.dumps(_rect(cx + 0.0010, cy - 0.0030, 0.0010, 0.0012))),
         ])
         s.commit()
         return a.id

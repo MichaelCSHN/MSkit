@@ -60,8 +60,20 @@ export default function App() {
   const roleRef = useRef('organizer')
   const modeRef = useRef('none')
   const routeStart = useRef(null)
+  const routeWps = useRef([])
   const actId = useRef(null)
   const drawPts = useRef([])
+
+  function getPos() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve(null)
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
+        () => resolve(null),
+        { timeout: 6000, enableHighAccuracy: true },
+      )
+    })
+  }
 
   const [ready, setReady] = useState(false)
   const [role, setRole] = useState('organizer')
@@ -89,7 +101,7 @@ export default function App() {
     m.addControl(new maplibregl.NavigationControl(), 'top-right')
 
     m.on('load', async () => {
-      for (const id of ['zones', 'tracks', 'dets', 'cov-obs', 'cov-gaps', 'route', 'draw', 'sweep']) {
+      for (const id of ['zones', 'tracks', 'dets', 'cov-obs', 'cov-gaps', 'route', 'draw', 'sweep', 'markers']) {
         m.addSource(id, { type: 'geojson', data: EMPTY })
       }
       m.addLayer({
@@ -139,6 +151,11 @@ export default function App() {
         id: 'route-line', type: 'line', source: 'route',
         paint: { 'line-color': '#7c3aed', 'line-width': 4 },
       })
+      m.addLayer({
+        id: 'route-pts', type: 'circle', source: 'route',
+        filter: ['==', ['geometry-type'], 'Point'],
+        paint: { 'circle-radius': 5, 'circle-color': '#7c3aed', 'circle-stroke-color': '#fff', 'circle-stroke-width': 2 },
+      })
       // in-progress zone drawing (organizer)
       m.addLayer({
         id: 'draw-fill', type: 'fill', source: 'draw',
@@ -176,6 +193,22 @@ export default function App() {
         },
       })
 
+      // SAR ground-truth markers (target = red & large, decoy = grey)
+      m.addLayer({
+        id: 'marker-pt', type: 'circle', source: 'markers',
+        paint: {
+          'circle-radius': ['match', ['get', 'kind'], 'target', 9, 5],
+          'circle-color': ['match', ['get', 'kind'], 'target', '#dc2626', '#6b7280'],
+          'circle-stroke-color': '#fff', 'circle-stroke-width': 2,
+        },
+      })
+
+      // finish a multi-waypoint route by double-click or right-click
+      m.on('dblclick', (e) => {
+        if (modeRef.current === 'route') { e.preventDefault(); finishRoute() }
+      })
+      m.on('contextmenu', () => { if (modeRef.current === 'route') finishRoute() })
+
       m.on('click', (e) => {
         if (modeRef.current === 'route') return onRouteClick(e.lngLat)
         if (modeRef.current === 'draw') {
@@ -210,6 +243,16 @@ export default function App() {
         await load('organizer')
         m.resize()
         setTimeout(() => m.resize(), 300)
+        // default the starting area to the current location (once per session)
+        if (!sessionStorage.getItem('mskit_located')) {
+          const pos = await getPos()
+          if (pos) {
+            sessionStorage.setItem('mskit_located', '1')
+            await api.reset({ lat: pos.lat, lon: pos.lon })
+            await reloadActivity()
+            setMsg('已把起始区域定位到当前位置')
+          }
+        }
       } catch (err) {
         console.error(err)
         setMsg('❌ 无法连接后端（:8000）。请先启动后端，再刷新本页。')
@@ -227,6 +270,7 @@ export default function App() {
       map.current.getSource('zones').setData(s.zones)
       map.current.getSource('tracks').setData(s.tracks)
       map.current.getSource('dets').setData(s.detections)
+      map.current.getSource('markers').setData(s.markers || EMPTY)
       setCounts(s.counts)
       setScenario(s.activity.scenario)
       setMsg(`活动 #${id} · ${s.activity.name}`)
@@ -260,23 +304,51 @@ export default function App() {
     const next = modeRef.current === 'route' ? 'none' : 'route'
     modeRef.current = next
     setMode(next)
-    routeStart.current = null
-    if (next === 'route') setMsg('路径规划：点击地图设置起点，再点终点（绕开禁入区）')
+    routeWps.current = []
+    map.current.getSource('route').setData(EMPTY)
+    if (next === 'route') {
+      map.current.doubleClickZoom.disable()
+      setMsg('路径规划：依次点选多个途经点；双击或右键结束（自动吸附道路）')
+    } else {
+      map.current.doubleClickZoom.enable()
+      setMsg('已退出路径规划')
+    }
   }
 
-  async function onRouteClick(lngLat) {
-    const p = [Number(lngLat.lng.toFixed(6)), Number(lngLat.lat.toFixed(6))]
-    if (!routeStart.current) {
-      routeStart.current = p
-      setMsg(`起点已设 ${p[1]},${p[0]}，请点终点`)
-      return
-    }
-    const r = await api.route(actId.current, routeStart.current, p)
-    map.current.getSource('route').setData(r.geojson)
-    setMsg(`路径：${r.path.length} 点 · ${r.length_m} m · 绕开禁入区 ${r.avoided_no_go}`)
-    routeStart.current = null
+  function renderRouteWps() {
+    const wps = routeWps.current
+    const feats = wps.map((p) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: p } }))
+    if (wps.length >= 2)
+      feats.unshift({ type: 'Feature', geometry: { type: 'LineString', coordinates: wps } })
+    map.current.getSource('route').setData({ type: 'FeatureCollection', features: feats })
+  }
+
+  function onRouteClick(lngLat) {
+    routeWps.current.push([Number(lngLat.lng.toFixed(6)), Number(lngLat.lat.toFixed(6))])
+    renderRouteWps()
+    setMsg(`途经点 ${routeWps.current.length}（双击 / 右键结束）`)
+  }
+
+  async function finishRoute() {
+    const wps = routeWps.current.slice()
     modeRef.current = 'none'
     setMode('none')
+    map.current.doubleClickZoom.enable()
+    if (wps.length < 2) {
+      setMsg('至少需要 2 个途经点')
+      map.current.getSource('route').setData(EMPTY)
+      routeWps.current = []
+      return
+    }
+    setMsg('规划中（吸附道路）…')
+    try {
+      const r = await api.routeRoads(actId.current, wps)
+      map.current.getSource('route').setData(r.geojson)
+      setMsg(`路径 ${r.length_m} m · ${r.roads ? '已吸附道路 (OSRM)' : '越野直连 (道路服务不可达，A* 绕禁入区)'}`)
+    } catch (err) {
+      setMsg('路由失败：' + err.message)
+    }
+    routeWps.current = []
   }
 
   async function doChange() {
@@ -397,11 +469,13 @@ export default function App() {
   }
 
   async function switchScenario(kind) {
-    setMsg('切换场景中…')
-    if (kind === 'sar') await api.sarReset()
-    else await api.reset()
+    setMsg('切换场景中（定位当前位置）…')
+    const pos = await getPos()
+    const center = pos ? { lat: pos.lat, lon: pos.lon } : undefined
+    if (kind === 'sar') await api.sarReset(center)
+    else await api.reset(center)
     await reloadActivity()
-    setMsg(kind === 'sar' ? '已切到搜救(SAR)' : '已切到捉迷藏')
+    setMsg((kind === 'sar' ? '已切到搜救(SAR)' : '已切到捉迷藏') + (pos ? ' · 当前位置' : ''))
   }
 
   async function doPlaceTargets() {
@@ -558,6 +632,8 @@ export default function App() {
           <span><i style={{ background: '#14b8a6' }} />安全区</span>
           <span><i style={{ background: '#f59e0b', borderRadius: '50%' }} />发现</span>
           <span><i style={{ background: '#db2777', borderRadius: '50%' }} />变化</span>
+          {scenario === 'sar' && <span><i style={{ background: '#dc2626', borderRadius: '50%' }} />目标</span>}
+          {scenario === 'sar' && <span><i style={{ background: '#6b7280', borderRadius: '50%' }} />疑似</span>}
         </div>
 
         <div className="msg">{msg}</div>

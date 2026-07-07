@@ -30,7 +30,14 @@ export const api = {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ zone_kind, count }),
     }),
-  reset: () => j(`${BASE}/demo/reset`, { method: 'POST' }),
+  reset: (center) => j(`${BASE}/demo/reset`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(center || {}),
+  }),
+  routeRoads: (id, waypoints) => j(`${BASE}/activities/${id}/route/roads`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ waypoints }),
+  }),
   addZone: (id, body) =>
     j(`${BASE}/activities/${id}/zones`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -49,7 +56,10 @@ export const api = {
   reportUrl: (id) => `${BASE}/activities/${id}/report.html`,
 
   // --- SAR (search & rescue) ---
-  sarReset: () => j(`${BASE}/demo/sar`, { method: 'POST' }),
+  sarReset: (center) => j(`${BASE}/demo/sar`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(center || {}),
+  }),
   placeTargets: (id, decoys = 4) =>
     j(`${BASE}/activities/${id}/sar/place-targets`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
