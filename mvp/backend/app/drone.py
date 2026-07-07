@@ -33,9 +33,10 @@ _ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapS
 _FSRCNN_URL = "https://raw.githubusercontent.com/Saafke/FSRCNN_Tensorflow/master/models/FSRCNN_x4.pb"
 TILE = 256
 NATIVE_MAX = 17          # native Esri zoom used as SR source; beyond -> synthesize
-MAX_SYNTH = NATIVE_MAX + 3   # deepest zoom we serve
+MAX_SYNTH = NATIVE_MAX + 2   # deepest zoom we serve (seamless x4 from ancestor)
 
 _sr = None               # cached cv2 dnn_superres model (or False if unavailable)
+_anc_cache: dict = {}    # (ax,ay,scale) -> upscaled ancestor PIL image
 
 
 # ---- tiles ----------------------------------------------------------------
@@ -107,6 +108,22 @@ def _sr_upscale(img: Image.Image, target: int) -> Image.Image:
 
 
 # ---- endpoints ------------------------------------------------------------
+def _upscaled_ancestor(ax: int, ay: int, scale: int) -> Image.Image | None:
+    """Upscale a whole native tile to 256*scale once (cached) so child tiles are
+    seamless slices — avoids per-crop SR noise and tile-boundary grids."""
+    key = (ax, ay, scale)
+    if key in _anc_cache:
+        return _anc_cache[key]
+    anc = _fetch_tile(NATIVE_MAX, ax, ay)
+    if anc is None:
+        return None
+    big = _sr_upscale(anc, TILE * scale)   # FSRCNN on a full 256 tile, then fit
+    if len(_anc_cache) > 96:
+        _anc_cache.clear()
+    _anc_cache[key] = big
+    return big
+
+
 @router.get("/sr-tiles/{z}/{x}/{y}.jpg")
 def sr_tile(z: int, x: int, y: int):
     """Raster tiles for the drone mini-map; SR-synthesized beyond native zoom."""
@@ -117,14 +134,14 @@ def sr_tile(z: int, x: int, y: int):
         if img is None:
             raise HTTPException(504, "tile unavailable")
     else:
-        f = 2 ** (z - NATIVE_MAX)
-        ax, ay = x // f, y // f
-        anc = _fetch_tile(NATIVE_MAX, ax, ay)
-        if anc is None:
+        dz = z - NATIVE_MAX
+        scale = 2 ** dz
+        ax, ay = x >> dz, y >> dz
+        big = _upscaled_ancestor(ax, ay, scale)
+        if big is None:
             raise HTTPException(504, "tile unavailable")
-        sub = max(1, TILE // f)
-        sx, sy = (x - ax * f) * sub, (y - ay * f) * sub
-        img = _sr_upscale(anc.crop((sx, sy, sx + sub, sy + sub)), TILE)
+        cx, cy = x - (ax << dz), y - (ay << dz)
+        img = big.crop((cx * TILE, cy * TILE, cx * TILE + TILE, cy * TILE + TILE))
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85)
     return Response(buf.getvalue(), media_type="image/jpeg")

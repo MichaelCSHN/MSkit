@@ -294,7 +294,7 @@ export default function App() {
           const lon = ft.geometry.coordinates[0], lat = ft.geometry.coordinates[1]
           setDet({ ...ft.properties, _lon: lon, _lat: lat })
           if (scenarioRef.current === 'sar')
-            setDroneView({ lon, lat, label: `候选 #${ft.properties.id} · P${ft.properties.priority}` })
+            setDroneView({ lon, lat, label: `候选 #${ft.properties.id} · ${bandOf(ft.properties.priority)}` })
           return
         }
         setDet(null)
@@ -347,12 +347,12 @@ export default function App() {
           sr: {
             type: 'raster',
             tiles: [`${window.location.origin}/api/sr-tiles/{z}/{x}/{y}.jpg`],
-            tileSize: 256, minzoom: 14, maxzoom: 20,
+            tileSize: 256, minzoom: 14, maxzoom: 19,
           },
         },
         layers: [{ id: 'sr', type: 'raster', source: 'sr' }],
       },
-      center, zoom: 18, minZoom: 15, maxZoom: 20, attributionControl: false,
+      center, zoom: 18, minZoom: 15, maxZoom: 19, attributionControl: false,
     })
     dvMap.current = mm
     mm.on('load', () => mm.resize())
@@ -635,7 +635,7 @@ export default function App() {
     if (feats.length) {
       const f = feats[0]
       setDroneView({ lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
-        label: `候选 #${f.properties.id} · P${f.properties.priority}` })
+        label: `候选 #${f.properties.id} · ${bandOf(f.properties.priority)}` })
     } else {
       const sz = s.zones.features.find((z) => z.properties.kind === 'search')
       if (sz) {
