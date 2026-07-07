@@ -14,6 +14,16 @@ MSkit 在一台加固便携箱内集成高算力边缘 AI、厘米级 RTK 定位
 
 差异化定位：同时具备高算力边缘 AI（67–275 TOPS）+ 厘米级 RTK + 热成像 + LoRa Mesh + 加固便携的民用/商用级边缘智能产品。
 
+## 黑 / 红 / 蓝三方架构
+
+| 方别 | 角色 | 核心能力 | MVP 展示 |
+|------|------|----------|----------|
+| 黑方 | 活动、游戏、赛事、演练或任务的组织者 / 裁判 / 调度方 | 全局态势、规则、PNT、路径规划、裁判/调度、报告归档 | PNT 与全局规划 |
+| 红方 | 游戏/竞赛攻方，或搜救小队、巡检搜索小队 | 检测、搜索、识别、发现点标注、证据采集 | GOD / COD |
+| 蓝方 | 游戏/竞赛守方，或安保小队、防护/值守小队 | CCD、区域防护、覆盖设计、变化监测、巡查路径 | CCD 方案设计 |
+
+> 三方架构只用于民用活动组织、模拟竞赛、搜救训练、安保巡检和户外团队协作；不得解释为军事指挥、武器化、打击排序或作战控制。
+
 ## 产品变体一览
 
 | 变体 | 计算模块 | AI 算力 | 热成像 | 基础 BOM | 目标零售价 | 估算毛利率 |
@@ -39,18 +49,19 @@ MSkit 在一台加固便携箱内集成高算力边缘 AI、厘米级 RTK 定位
 | 环境 | IP65（可选 IP67）为整机装配后目标等级；MIL-STD-810H 为设计验证方法，第三方测试前不宣称 certified |
 | 软件栈 | JetPack 6.2.1 + CUDA 12.6.10 + TensorRT 10.3，Docker + systemd |
 | 安全 | LUKS2 全盘加密 + TPM 2.0 + Secure Boot + RBAC + 审计日志；导出默认为加密包 + 二次确认 |
-| MVP 演示 | 笔记本 + 遥控器 + 无人机，或笔记本 + 无人机/离线素材；展示 GOD/COD、CCD、定位-路径规划，不做飞控控制 |
+| MVP 演示 | 黑方 PNT/规划 + 红方 GOD/COD + 蓝方 CCD；硬件为笔记本 + 遥控器 + 无人机，或笔记本 + 无人机/离线素材；不做飞控控制 |
 | 外协 | 对外按 6 个一级包 A–F 管理；OP-01–OP-12 仅作为二级 WBS、验收点和风险跟踪项 |
 
 ## 文档索引
 
 | 文档 | 说明 |
 |------|------|
-| [MSkit_v1.3.2_Spec.md](docs/MSkit_v1.3.2_Spec.md) | **v1.3.2 主规格（变更集/覆盖层）**：承载最新口径、命名、数值、合规表述和外协一级包执行口径；工程明细仍见 v1.3 明细规格 |
-| [MSkit_v1.3.2_MVP_Demo_Plan.md](docs/MSkit_v1.3.2_MVP_Demo_Plan.md) | **MVP 演示开发计划**：用于立项/融资路演，硬件降级为笔记本 + 遥控器 + 无人机或笔记本 + 无人机/素材导入，展示 GOD/COD、CCD、定位-路径规划 |
+| [MSkit_v1.3.2_Spec.md](docs/MSkit_v1.3.2_Spec.md) | **v1.3.2 主规格（变更集/覆盖层）**：承载最新口径、命名、数值、合规表述、三方架构、MVP 边界和外协一级包执行口径；工程明细仍见 v1.3 明细规格 |
+| [MSkit_v1.3.2_Tri_Party_Functions.md](docs/MSkit_v1.3.2_Tri_Party_Functions.md) | **黑/红/蓝三方架构与功能矩阵**：明确黑方、红方、蓝方的通用功能、专有功能、权限边界和 MVP 展示取舍 |
+| [MSkit_v1.3.2_MVP_Demo_Plan.md](docs/MSkit_v1.3.2_MVP_Demo_Plan.md) | **MVP 演示开发计划**：用于立项/融资路演，展示黑方 PNT/规划、红方 GOD/COD、蓝方 CCD 的三方闭环 |
 | [MSkit_v1.3.2_Development_Plan.md](docs/MSkit_v1.3.2_Development_Plan.md) | **v1.3.2 同步开发计划**：统一 AI 测量口径、无人机数据接入边界、Class A/B、加密导出验收、外协一级包 A–F 与 M16–M18 |
 | [MSkit_v1.3.2_BOM_Cost_Table.md](docs/MSkit_v1.3.2_BOM_Cost_Table.md) | **v1.3.2 BOM 同步表**：地区化通信 SKU、电池化学体系分层、Pilot Batch 经济性 |
-| [MSkit_v1.3.2_Development_Checklist.md](docs/MSkit_v1.3.2_Development_Checklist.md) | **v1.3.2 同步 Checklist**：修正 LoRa、EMC、环境测试、无人机、加密导出、授权检查项和外协一级包治理项 |
+| [MSkit_v1.3.2_Development_Checklist.md](docs/MSkit_v1.3.2_Development_Checklist.md) | **v1.3.2 同步 Checklist**：修正 LoRa、EMC、环境测试、无人机、加密导出、授权检查项、三方 MVP 和外协一级包治理项 |
 | [MSkit_v1.3.2_Outsourcing_Modules.md](docs/MSkit_v1.3.2_Outsourcing_Modules.md) | **v1.3.2 外协分包方案**：6 个一级外包包 + 1 个内部核心包；OP-01–OP-12 为二级 WBS/验收项/风险跟踪项 |
 | [v1.3 明细规格](docs/MSkit_v1.3_Spec.md) | **明细基线（仍然有效）**：完整硬件/接口/附录 A–E/术语表/SBOM 许可证/风险矩阵；v1.3.2 未覆盖的明细以此为准 |
 | [v1.3 明细开发计划](docs/MSkit_v1.3_Development_Plan.md) | **明细基线（仍然有效）**：完整 WP 表（WP-ID / DoD / 关口）；v1.3.2 计划为其变更集 |
@@ -58,7 +69,7 @@ MSkit 在一台加固便携箱内集成高算力边缘 AI、厘米级 RTK 定位
 | [v1.3 明细 Checklist](docs/MSkit_v1.3_Development_Checklist.md) | **明细基线（仍然有效）**：逐项检查清单；v1.3.2 Checklist 覆盖不一致项 |
 
 > **规格来源约定（分层权威）**：v1.3.2 文档集是 v1.3 的**变更集/覆盖层**，二者配套使用——
-> - **冲突处**以 v1.3.2 为准（口径、命名、数值、合规表述、MVP 演示边界、外协一级包结构）；
+> - **冲突处**以 v1.3.2 为准（口径、命名、数值、合规表述、三方角色边界、MVP 演示边界、外协一级包结构）；
 > - **未覆盖的工程明细**（接口/引脚定义、附录 A–E、术语表、SBOM 许可证清单、元件级 BOM、完整 WP 表）仍以 v1.3 明细文档为准，**v1.3 明细并未失效**。
 >
 > 如需 Word/PDF 版本用于对外分发，从上述 Markdown 导出。外协 SOW / RFP 必须同时引用 v1.3.2 覆盖层和对应 v1.3 明细文档，并列明适用章节。
@@ -75,7 +86,7 @@ MSkit 在一台加固便携箱内集成高算力边缘 AI、厘米级 RTK 定位
 
 | 里程碑 | 时间 | 交付物 |
 |--------|------|--------|
-| M0 MVP 路演演示 | 6 周 | 笔记本版 MVP：GOD/COD、CCD、定位-路径规划、报告导出、演示脚本 |
+| M0 MVP 路演演示 | 6 周 | 三方笔记本版 MVP：黑方 PNT/规划、红方 GOD/COD、蓝方 CCD、报告导出、演示脚本 |
 | M1 Spec 冻结 | M2 末 | v1.3.2 签署版 + 架构设计 + 一级外包包 SOW 草案 |
 | M2 POC 验证 | M4.5 末 | 可运行原型（Jetson + 传感器联调） |
 | M3 Alpha 软件 | M8 末 | 全部功能模块初版 |
