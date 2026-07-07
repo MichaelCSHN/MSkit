@@ -8,13 +8,22 @@ const ROLES = [
   { key: 'protection', label: '防护方', hint: '覆盖规划' },
 ]
 
+// Tile URLs MUST be absolute: MapLibre fetches tiles in a Web Worker, where a
+// relative URL resolves against the worker blob (not the page) and fails.
+// Default: direct OSM (reliable, needs internet in the browser).
+// Offline mode: set USE_OFFLINE_TILES=true to use the backend disk cache
+// (pre-warm the demo area once online, then it works offline).
+const USE_OFFLINE_TILES = false
+const TILE_URL = USE_OFFLINE_TILES
+  ? `${window.location.origin}/api/tiles/{z}/{x}/{y}.png`
+  : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+
 const RASTER_STYLE = {
   version: 8,
   sources: {
     osm: {
       type: 'raster',
-      // backend disk-cached tiles: offline-resilient after the area is warmed
-      tiles: ['/api/tiles/{z}/{x}/{y}.png'],
+      tiles: [TILE_URL],
       tileSize: 256,
       attribution: '© OpenStreetMap contributors',
     },
