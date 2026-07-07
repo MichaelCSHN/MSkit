@@ -108,6 +108,9 @@ export default function App() {
   const coordRef = useRef(null)
   const routeProfileRef = useRef('foot')
   const scenarioRef = useRef('hide_and_seek')
+  const dvMap = useRef(null)
+  const dvMapEl = useRef(null)
+  const dvMarker = useRef(null)
 
   const [ready, setReady] = useState(false)
   const [role, setRole] = useState('organizer')
@@ -313,6 +316,39 @@ export default function App() {
 
     return () => m.remove()
   }, [])
+
+  // drone aerial view = interactive mini-map on the SR tile service (pan/zoom)
+  useEffect(() => {
+    if (!droneView) {
+      if (dvMap.current) { dvMap.current.remove(); dvMap.current = null; dvMarker.current = null }
+      return
+    }
+    const center = [droneView.lon, droneView.lat]
+    if (dvMap.current) {
+      dvMap.current.jumpTo({ center, zoom: 18 })
+      if (dvMarker.current) dvMarker.current.setLngLat(center)
+      return
+    }
+    if (!dvMapEl.current) return
+    const mm = new maplibregl.Map({
+      container: dvMapEl.current,
+      style: {
+        version: 8,
+        sources: {
+          sr: {
+            type: 'raster',
+            tiles: [`${window.location.origin}/api/sr-tiles/{z}/{x}/{y}.jpg`],
+            tileSize: 256, minzoom: 14, maxzoom: 20,
+          },
+        },
+        layers: [{ id: 'sr', type: 'raster', source: 'sr' }],
+      },
+      center, zoom: 18, minZoom: 15, maxZoom: 20, attributionControl: false,
+    })
+    dvMap.current = mm
+    mm.on('load', () => mm.resize())
+    dvMarker.current = new maplibregl.Marker({ color: '#dc2626' }).setLngLat(center).addTo(mm)
+  }, [droneView])
 
   async function load(r) {
     const id = actId.current
@@ -800,10 +836,8 @@ export default function App() {
             <span>🚁 无人机视角 · {droneView.label}</span>
             <button onClick={() => setDroneView(null)} title="关闭">×</button>
           </div>
-          <img className="dv-img" key={`${droneView.lat},${droneView.lon}`}
-            src={`/api/drone-image?lat=${droneView.lat}&lon=${droneView.lon}`} alt="drone aerial"
-            onError={(e) => { e.currentTarget.style.opacity = '0.2' }} />
-          <div className="dv-cap">{droneView.lat.toFixed(5)}, {droneView.lon.toFixed(5)} · 卫星超分增强（模拟，非真实无人机影像）</div>
+          <div ref={dvMapEl} className="dv-map" />
+          <div className="dv-cap">{droneView.lat.toFixed(5)}, {droneView.lon.toFixed(5)} · 卫星超分(FSRCNN×4)·滚轮缩放·模拟非真实无人机影像</div>
         </div>
       )}
     </div>
