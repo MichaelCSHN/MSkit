@@ -98,6 +98,7 @@ export default function App() {
   const dvMap = useRef(null)
   const dvMapEl = useRef(null)
   const dvMarker = useRef(null)
+  const scenarioRef = useRef('hide_and_seek')
 
   const [ready, setReady] = useState(false)
   const [role, setRole] = useState('organizer')
@@ -253,7 +254,10 @@ export default function App() {
         const f = m.queryRenderedFeatures(e.point, { layers: ['det-circle', 'det-change'] })
         if (f.length) {
           const ft = f[0]
-          setDet({ ...ft.properties, _lon: ft.geometry.coordinates[0], _lat: ft.geometry.coordinates[1] })
+          const lon = ft.geometry.coordinates[0], lat = ft.geometry.coordinates[1]
+          setDet({ ...ft.properties, _lon: lon, _lat: lat })
+          if (scenarioRef.current === 'sar')
+            setDroneView({ lon, lat, label: `候选 #${ft.properties.id} · P${ft.properties.priority}` })
           return
         }
         setDet(null)
@@ -293,7 +297,7 @@ export default function App() {
     }
     const center = [droneView.lon, droneView.lat]
     if (dvMap.current) {
-      dvMap.current.jumpTo({ center, zoom: 18 })
+      dvMap.current.jumpTo({ center, zoom: 16 })
       if (dvMarker.current) dvMarker.current.setLngLat(center)
       return
     }
@@ -305,7 +309,7 @@ export default function App() {
         sources: { sat: { type: 'raster', tiles: [SAT_URL], tileSize: 256 } },
         layers: [{ id: 'sat', type: 'raster', source: 'sat' }],
       },
-      center, zoom: 18, attributionControl: false,
+      center, zoom: 16, attributionControl: false,
     })
     dvMap.current = mm
     mm.on('load', () => mm.resize())
@@ -323,6 +327,7 @@ export default function App() {
       map.current.getSource('markers').setData(s.markers || EMPTY)
       setCounts(s.counts)
       setScenario(s.activity.scenario)
+      scenarioRef.current = s.activity.scenario
       setMsg(`活动 #${id} · ${s.activity.name}`)
       if (s.activity.scenario === 'sar') {
         try { setSarStat(await api.sarStatus(id)) } catch { /* ignore */ }
@@ -755,9 +760,6 @@ export default function App() {
           <div>类别：{det.label} · 置信度 {Number(det.confidence).toFixed(2)}
             {det.priority > 0 && <> · 优先级 P{det.priority}</>}</div>
           <div>状态：{det.status} · {String(det.simulated) === 'true' ? '模拟/预置' : '真实推理'}</div>
-          {scenario === 'sar' && (
-            <button className="dv-btn" onClick={() => setDroneView({ lon: det._lon, lat: det._lat, label: `候选 #${det.id} · P${det.priority}` })}>🚁 看无人机画面</button>
-          )}
           {scenario === 'sar' && (
             <button className="arrive" onClick={arriveAt}>到达核查（是否真目标）</button>
           )}
