@@ -628,8 +628,10 @@ def state(activity_id: int, role: str = "organizer", session: Session = Depends(
         "geometry": {"type": "Point", "coordinates": [d.lon, d.lat]},
     } for d in dets]
 
-    # SAR ground-truth markers (organizer-placed target/decoys), visible to all
-    marker_rows = session.exec(select(Marker).where(Marker.activity_id == activity_id)).all()
+    # SAR ground-truth markers (target/decoys): visible to organizer only.
+    # The search role sees them only indirectly, as drone-detected candidates.
+    marker_rows = (session.exec(select(Marker).where(Marker.activity_id == activity_id)).all()
+                   if role == "organizer" else [])
     marker_features = [{
         "type": "Feature",
         "properties": {"id": mk.id, "kind": mk.kind, "revealed": mk.revealed},

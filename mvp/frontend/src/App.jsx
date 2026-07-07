@@ -63,6 +63,7 @@ export default function App() {
   const routeWps = useRef([])
   const actId = useRef(null)
   const drawPts = useRef([])
+  const coordRef = useRef(null)
 
   function getPos() {
     return new Promise((resolve) => {
@@ -208,6 +209,12 @@ export default function App() {
         if (modeRef.current === 'route') { e.preventDefault(); finishRoute() }
       })
       m.on('contextmenu', () => { if (modeRef.current === 'route') finishRoute() })
+
+      // live coordinate readout (updates a DOM node directly, no re-render)
+      m.on('mousemove', (e) => {
+        if (coordRef.current)
+          coordRef.current.textContent = `${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}  z${m.getZoom().toFixed(1)}`
+      })
 
       m.on('click', (e) => {
         if (modeRef.current === 'route') return onRouteClick(e.lngLat)
@@ -523,6 +530,7 @@ export default function App() {
     <div className="app">
       <div ref={mapEl} className="map"
            style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }} />
+      <div className="coord" ref={coordRef}>移动鼠标查看经纬度</div>
       <div className="panel">
         <h1>MSkit MVP</h1>
         <div className="sub">组织 / 搜索 / 防护 · 三方态势</div>
