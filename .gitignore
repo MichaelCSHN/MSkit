@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+mvp/backend/.venv/
+mvp/backend/*.db
+mvp/backend/data_store/
+
+# Node / frontend
+node_modules/
+mvp/frontend/dist/
+mvp/frontend/.vite/
+
+# Env / editor
+.env
+.env.*
+.DS_Store
+.idea/
+.vscode/
+
+# Model weights (heavy)
+*.pt
+*.engine
+*.onnx

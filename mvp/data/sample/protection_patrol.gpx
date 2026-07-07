@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="MSkit-MVP-sample" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>protection patrol sample</name>
+    <trkseg>
+      <trkpt lat="30.24700" lon="120.13300"><ele>12</ele><time>2026-07-07T01:00:00Z</time></trkpt>
+      <trkpt lat="30.24900" lon="120.13350"><ele>12</ele><time>2026-07-07T01:01:00Z</time></trkpt>
+      <trkpt lat="30.25100" lon="120.13420"><ele>13</ele><time>2026-07-07T01:02:00Z</time></trkpt>
+      <trkpt lat="30.25250" lon="120.13520"><ele>13</ele><time>2026-07-07T01:03:00Z</time></trkpt>
+      <trkpt lat="30.25250" lon="120.13650"><ele>14</ele><time>2026-07-07T01:04:00Z</time></trkpt>
+      <trkpt lat="30.25050" lon="120.13700"><ele>14</ele><time>2026-07-07T01:05:00Z</time></trkpt>
+      <trkpt lat="30.24850" lon="120.13650"><ele>13</ele><time>2026-07-07T01:06:00Z</time></trkpt>
+      <trkpt lat="30.24720" lon="120.13520"><ele>12</ele><time>2026-07-07T01:07:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
