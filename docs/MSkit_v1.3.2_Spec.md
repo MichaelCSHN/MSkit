@@ -20,7 +20,8 @@
 4. AI 指标拆分为模型推理 FPS（640×640）与端到端视频管线 FPS（1080p 输入）。
 5. BOM/通信口径同步为地区化 SKU；标准版优先 Li-ion/LiFePO4，LiPo 仅用于工程样机/专业用户版本。
 6. README、BOM、开发计划、Checklist 同步为 v1.3.2 口径。
-7. 评审一致性修订：明确"分层权威"（v1.3.2 为覆盖层，v1.3 明细仍有效）；修正狩猎场景表述；开发计划 WP-ID 对齐历史计划（WP-3.7.2/4.3.1/4.4.1，无人机 WP-4.6 标注新增）；补齐外协拆分两处 P0 缺口——端到端视频 FPS（≥25 FPS，OP-08 联合 OP-06）与 RTK/GNSS 定位融合（OP-12，水平<2cm）；TASK/SIM 归入 OP-07；统一 "Lite/Standard/Pro" 三档 Profile 表述。
+7. 评审一致性修订：明确“分层权威”（v1.3.2 为覆盖层，v1.3 明细仍有效）；修正狩猎场景表述；开发计划 WP-ID 对齐历史计划（WP-3.7.2/4.3.1/4.4.1，无人机 WP-4.6 标注新增）；补齐外协拆分两处 P0 缺口——端到端视频 FPS（≥25 FPS）与 RTK/GNSS 定位融合（水平<2cm）；TASK/SIM 归入应用软件工作域；统一 “Lite/Standard/Pro” 三档 Profile 表述。
+8. 外协方案升级：外协不再按 OP-01–OP-12 直接发包，改为 **6 个一级外包包 + 1 个内部核心包**；OP 保留为二级 WBS、验收点与风险跟踪项。
 
 ---
 
@@ -151,11 +152,32 @@ YOLOv8/Ultralytics 不得默认进入闭源商业版本。项目必须在购买 
 
 ---
 
-## 10. 18 个月里程碑
+## 10. 外协执行口径
+
+MSkit 外协采用“双层结构”：
+
+- **一级外包包 A–F**：用于对外 SOW / RFP / 合同管理；
+- **OP-01–OP-12**：作为内部二级 WBS、验收项、依赖项和风险跟踪项。
+
+| 一级包 | 合并 OP | 主责 |
+|--------|---------|------|
+| A. Rugged Hardware & Mechatronics | OP-01 + OP-02 + OP-03 | 结构、电源、电池、热设计、环境预验证 |
+| B. RF / Wireless / Certification | OP-04 + OP-11 中认证技术部分 | 地区化无线 SKU、天线、RF/EMC 预扫描、认证资料 |
+| C. Edge Platform & Device Firmware | OP-05 + OP-09 + OP-12 | Jetson BSP、OTA、LoRa 低速遥测、RTK/GNSS/IMU 融合 |
+| D. Application Software | OP-07 + OP-08 | 地图、导航、任务、报告、Dashboard、视频 UI 链路 |
+| E. AI Data & Model Optimization | OP-06 | 数据集、训练、模型权重、TensorRT engine、模型层性能 |
+| F. Manufacturing & Test Fixtures | OP-10 | 试产 SOP、工装、老化测试、出厂测试、良率报告 |
+| 内部核心包 | 架构/安全/接口/验收/合规边界 | 不外包，负责最终整机签署 |
+
+端到端视频 FPS、加密导出、整机 IP/EMC、Pilot Batch 出厂质量等跨包指标由内部 Integration Owner / QA 牵头联合验收，不能转嫁给单一外协方。
+
+---
+
+## 11. 18 个月里程碑
 
 | 里程碑 | 时间 | 交付物 |
 |--------|------|--------|
-| M1 Spec 冻结 | M2 末 | v1.3.2 签署版 + 架构设计 |
+| M1 Spec 冻结 | M2 末 | v1.3.2 签署版 + 架构设计 + 一级外包包 SOW 草案 |
 | M2 POC 验证 | M4.5 末 | 可运行原型 |
 | M3 Alpha 软件 | M8 末 | 全模块初版 |
 | M4 Beta 硬件定型 | M11 末 | EVT2 样机 |
@@ -167,7 +189,7 @@ YOLOv8/Ultralytics 不得默认进入闭源商业版本。项目必须在购买 
 
 ---
 
-## 11. 附属文件状态
+## 12. 附属文件状态
 
 以下图文件在历史规格中被引用，但当前仓库尚未提供；未入库前不得作为规格完整性交付项：
 
