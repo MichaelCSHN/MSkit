@@ -89,25 +89,36 @@ def _load_sr():
     return _sr
 
 
+def _lanczos(img: Image.Image, target: int) -> Image.Image:
+    big = img.resize((target, target), Image.LANCZOS)
+    return big.filter(ImageFilter.UnsharpMask(radius=2, percent=150, threshold=2))
+
+
 def _sr_upscale(img: Image.Image, target: int) -> Image.Image:
-    """Upscale a tile to target x target pixels (learned SR when available)."""
+    """Upscale to target x target (learned SR when it looks sane, else LANCZOS).
+
+    A per-tile sanity check vs the LANCZOS baseline catches occasional
+    dnn_superres garbage (streaks/grid) and falls back automatically.
+    """
+    base = _lanczos(img, target)
     sr = _load_sr()
     if sr:
         try:
             import cv2  # type: ignore
             import numpy as np  # type: ignore
-            # cvtColor returns a C-contiguous array; a reversed-stride view
-            # (arr[:,:,::-1]) makes dnn_superres emit streak/grid garbage.
-            bgr = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-            up = sr.upsample(bgr)                                    # x4 (learned)
+            bgr = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)   # contiguous
+            up = sr.upsample(bgr)                                   # x4 (learned)
             out = Image.fromarray(cv2.cvtColor(up, cv2.COLOR_BGR2RGB))
             if out.size != (target, target):
                 out = out.resize((target, target), Image.LANCZOS)
-            return out.filter(ImageFilter.UnsharpMask(radius=1, percent=70, threshold=1))
+            out = out.filter(ImageFilter.UnsharpMask(radius=1, percent=70, threshold=1))
+            mad = float(np.abs(np.asarray(out, dtype=np.int16)
+                               - np.asarray(base, dtype=np.int16)).mean())
+            if mad < 40:                     # coherent -> keep learned SR
+                return out
         except Exception:
             pass
-    big = img.resize((target, target), Image.LANCZOS)
-    return big.filter(ImageFilter.UnsharpMask(radius=2, percent=150, threshold=2))
+    return base                             # garbage or unavailable -> LANCZOS
 
 
 # ---- endpoints ------------------------------------------------------------
