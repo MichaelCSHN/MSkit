@@ -52,6 +52,36 @@ const ZONE_KINDS = [
 ]
 const kindLabel = (k) => (ZONE_KINDS.find((z) => z.kind === k) || {}).label || k
 
+// per (scenario, role) step guide — the "what do I do, in what order" panel
+const GUIDE = {
+  hs: {
+    organizer: { title: '组织方 · 统揽 / 裁判 / 归档', steps: [
+      '建区：下方选类型 → 地图点多个顶点 → 完成',
+      '点橙色“发现点” → 确认 / 驳回（裁决）',
+      '（可选）路径规划：点途经点 → 双击结束',
+      '打开报告导出'] },
+    search: { title: '搜索方 · 找目标 / 报证据', steps: [
+      '变化检测 (COD)：找新增/移动/消失',
+      '上传航迹(GPX/CSV) 或 沿航迹补充发现',
+      '点发现点复核'] },
+    protection: { title: '防护方 · 覆盖 / 巡查', steps: [
+      '防护覆盖规划：看观测点与盲区',
+      '路径规划：巡查路线'] },
+  },
+  sar: {
+    organizer: { title: '搜救·组织方 · 建场 / 布点（真值你可见）', steps: [
+      '拖地图到目标区域 → 📍设为起点',
+      '建区：画“重点搜索区”（先验范围）',
+      '预置隐藏目标（对搜索方不可见）',
+      '切到“搜索方”移交任务'] },
+    search: { title: '搜救·搜索方 · 检出 → 核查 → 到达', steps: [
+      '无人机拉网：检出橙色“候选点”',
+      '（可选）路线方式选“步行”',
+      '优先级路由，或手动路径规划(点途经点→双击结束)',
+      '点候选点 → 到达核查 → 到真目标即完成'] },
+  },
+}
+
 const EMPTY = { type: 'FeatureCollection', features: [] }
 
 export default function App() {
@@ -77,6 +107,7 @@ export default function App() {
   const [drawN, setDrawN] = useState(0)
   const [routeProfile, setRouteProfile] = useState('foot')
   const [scenario, setScenario] = useState('hide_and_seek')
+  const [showGuide, setShowGuide] = useState(true)
   const [decoys, setDecoys] = useState(4)
   const [altitude, setAltitude] = useState(90)
   const [sarStat, setSarStat] = useState(null)
@@ -523,6 +554,8 @@ export default function App() {
     else setMsg(`核查此候选：距真目标 ${r.distance_m}m —— 不是目标，继续下一个`)
   }
 
+  const guide = (GUIDE[scenario === 'sar' ? 'sar' : 'hs'] || {})[role]
+
   return (
     <div className="app">
       <div ref={mapEl} className="map"
@@ -534,8 +567,8 @@ export default function App() {
 
         <div className="scenario">
           <span>场景</span>
-          <button disabled={!ready} className={scenario !== 'sar' ? 'active' : ''} onClick={() => switchScenario('hs')}>捉迷藏</button>
-          <button disabled={!ready} className={scenario === 'sar' ? 'active' : ''} onClick={() => switchScenario('sar')}>搜救</button>
+          <button disabled={!ready} className={scenario !== 'sar' ? 'active' : ''} onClick={() => switchScenario('hs')} title="捉迷藏/对抗：组织+搜索+防护三方">捉迷藏</button>
+          <button disabled={!ready} className={scenario === 'sar' ? 'active' : ''} onClick={() => switchScenario('sar')} title="野外搜救：仅组织+搜索；隐藏目标+无人机检出+到达">搜救</button>
         </div>
 
         <div className="roles">
@@ -550,10 +583,23 @@ export default function App() {
 
         <div className="basemap">
           <span>底图</span>
-          <button className={basemap === 'street' ? 'active' : ''} onClick={() => switchBasemap('street')}>街道</button>
-          <button className={basemap === 'sat' ? 'active' : ''} onClick={() => switchBasemap('sat')}>卫星</button>
+          <button className={basemap === 'street' ? 'active' : ''} onClick={() => switchBasemap('street')} title="OpenStreetMap 街道底图">街道</button>
+          <button className={basemap === 'sat' ? 'active' : ''} onClick={() => switchBasemap('sat')} title="Esri 卫星影像底图">卫星</button>
           <button disabled={!ready} onClick={locateHere} title="以当前地图视图中心为起始区域">📍设为起点</button>
         </div>
+
+        {guide && showGuide && (
+          <div className="guide">
+            <div className="guide-head">
+              <span>👉 {guide.title}</span>
+              <button className="guide-x" onClick={() => setShowGuide(false)} title="收起引导">×</button>
+            </div>
+            <ol>{guide.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
+          </div>
+        )}
+        {guide && !showGuide && (
+          <button className="guide-show" onClick={() => setShowGuide(true)}>❔ 显示步骤引导</button>
+        )}
 
         {counts && (
           <div className="counts">
@@ -574,17 +620,17 @@ export default function App() {
             )}
             {role === 'organizer' && (
               <div className="sar-row">
-                <label>疑似 <input type="number" min="0" max="12" value={decoys} onChange={(e) => setDecoys(+e.target.value)} /></label>
-                <button disabled={!ready} onClick={doPlaceTargets}>预置隐藏目标</button>
+                <label title="疑似干扰点数量">疑似 <input type="number" min="0" max="12" value={decoys} onChange={(e) => setDecoys(+e.target.value)} /></label>
+                <button disabled={!ready} onClick={doPlaceTargets} title="在搜索区随机布 1 个真目标 + N 个疑似，仅组织方可见">预置隐藏目标</button>
               </div>
             )}
             {role === 'search' && (
               <>
                 <div className="sar-row">
-                  <label>高度 <input type="number" min="30" max="200" value={altitude} onChange={(e) => setAltitude(+e.target.value)} />m</label>
-                  <button disabled={!ready} onClick={doDroneSweep}>无人机拉网</button>
+                  <label title="飞行高度越高，相机足迹越大，覆盖越广">高度 <input type="number" min="30" max="200" value={altitude} onChange={(e) => setAltitude(+e.target.value)} />m</label>
+                  <button disabled={!ready} onClick={doDroneSweep} title="按高度决定相机足迹，拉网扫描搜索区并检出候选点">无人机拉网</button>
                 </div>
-                <button disabled={!ready} onClick={doRoutePriority}>优先级路由（串高优先候选）</button>
+                <button disabled={!ready} onClick={doRoutePriority} title="从出发安全区贪心串联高优先级候选点">优先级路由（串高优先候选）</button>
                 <div className="sar-hint">点候选点 → "到达核查" 验证是否为真目标</div>
               </>
             )}
@@ -592,29 +638,31 @@ export default function App() {
         )}
 
         <div className="actions">
-          <button disabled={!ready} onClick={doChange}>变化检测 (COD)</button>
-          <button disabled={!ready} onClick={doCoverage}>防护覆盖规划</button>
+          <button disabled={!ready} onClick={doChange} title="变化检测(COD)：对比基线找新增/移动/消失的变化点（模拟）">变化检测 (COD)</button>
+          <button disabled={!ready} onClick={doCoverage} title="在防护区内生成观测点、覆盖率与盲区">防护覆盖规划</button>
           <div className="routemode">
             <span>路线</span>
             {[['foot', '步行'], ['car', '道路'], ['offroad', '越野']].map(([k, l]) => (
               <button key={k} className={routeProfile === k ? 'active' : ''}
-                onClick={() => pickProfile(k)} title={k === 'foot' ? '徒步/小路(BRouter)' : k === 'car' ? '机动车道(OSRM)' : '直连绕禁入区(A*)'}>
+                onClick={() => pickProfile(k)} title={k === 'foot' ? '徒步/小路(BRouter)，搜救默认' : k === 'car' ? '机动车道(OSRM)，会绕大路' : '直连绕禁入区(A*)，最直'}>
                 {l}
               </button>
             ))}
           </div>
-          <button disabled={!ready} className={mode === 'route' ? 'on' : ''} onClick={toggleRoute}>
+          <button disabled={!ready} className={mode === 'route' ? 'on' : ''} onClick={toggleRoute}
+            title="点选多个途经点，双击/右键结束；按上方“路线”方式吸附">
             {mode === 'route' ? '取消路径' : '路径规划'}
           </button>
-          <label className={ready ? 'filebtn' : 'filebtn dis'}>
+          <label className={ready ? 'filebtn' : 'filebtn dis'} title="导入无人机 GPX/CSV 航迹">
             上传航迹 (GPX/CSV)
             <input type="file" accept=".gpx,.csv" disabled={!ready} onChange={doUpload} hidden />
           </label>
-          <button disabled={!ready} onClick={doSimulate}>沿航迹补充发现</button>
-          <button disabled={!ready} onClick={() => window.open(api.reportUrl(actId.current), '_blank')}>
+          <button disabled={!ready} onClick={doSimulate} title="沿最新航迹补充若干模拟发现点">沿航迹补充发现</button>
+          <button disabled={!ready} onClick={() => window.open(api.reportUrl(actId.current), '_blank')}
+            title="打开含“真实 vs 模拟”披露的 HTML 报告">
             打开报告
           </button>
-          <button disabled={!ready} className="reset" onClick={doReset}>重置演示</button>
+          <button disabled={!ready} className="reset" onClick={doReset} title="清库并重播种当前场景">重置演示</button>
         </div>
 
         {role === 'organizer' && (
@@ -628,7 +676,7 @@ export default function App() {
               ))}
             </div>
             {mode !== 'draw' ? (
-              <button disabled={!ready} onClick={startDraw}>绘制「{kindLabel(drawKind)}」</button>
+              <button disabled={!ready} onClick={startDraw} title="在地图上点多个顶点画该类型区域，≥3 点后点完成">绘制「{kindLabel(drawKind)}」</button>
             ) : (
               <div className="draw-live">
                 <span>顶点 {drawN}</span>
