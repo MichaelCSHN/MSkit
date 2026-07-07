@@ -1,6 +1,32 @@
 # MSkit v1.3.2 开发计划同步版
 
-> **基线**：`MSkit_v1.3.2_Spec.md`｜**状态**：内部评审稿｜**目的**：同步主规格中的 AI 测试口径、无人机数据接入边界、EMC Class A/B、环境测试声明、加密导出、BOM 地区化要求和外协一级包结构。
+> **基线**：`MSkit_v1.3.2_Spec.md`｜**状态**：内部评审稿｜**目的**：同步主规格中的 AI 测试口径、无人机数据接入边界、EMC Class A/B、环境测试声明、加密导出、BOM 地区化要求、外协一级包结构和 MVP 路演演示计划。
+
+---
+
+## 0. MVP 路演演示 Track（M0）
+
+MVP Track 独立于 18 个月工程样机计划，用于立项演示、融资路演和早期客户访谈。MVP 不验证加固硬件、Jetson、LoRa、RTK、IP/EMC/认证，也不做无人机飞控控制。
+
+| 项目 | 口径 |
+|------|------|
+| 周期 | 6 周 |
+| 硬件 | 方案 A：笔记本 + 无人机遥控器 + 无人机；方案 B：笔记本 + 无人机/离线素材导入 |
+| 核心功能 | GOD/COD、CCD、定位-路径规划、地图态势展示、报告导出 |
+| 数据接入 | 视频、图片、飞行日志、预录素材；可选 HDMI/USB/RTSP/文件导入 |
+| 合规边界 | 不下发飞控指令，不做自动起降/自动航线，不展示军事化目标分类或作战控制 |
+| Go/No-Go | 10 分钟连续演示无崩溃；3 分钟融资路演脚本和录屏备份完成 |
+
+### 0.1 MVP 6 周计划
+
+| 周期 | 目标 | 交付物 | Go/No-Go |
+|------|------|--------|----------|
+| W1 | 需求冻结与素材准备 | 演示区域、样例视频/图片/日志、UI 线框、术语冻结 | 路演场景和样例素材确认 |
+| W2 | 数据接入与地图底座 | 媒体导入、日志解析、轨迹上图、离线地图 | 能展示“视频 + 轨迹 + 地图” |
+| W3 | GOD 检测 MVP | 检测模型接入、检测框、置信度、地图点位 | 至少 1 类目标稳定检测并上图 |
+| W4 | COD 与 CCD 初版 | 基线/当前对比、变化高亮、区域绘制、覆盖建议 | 能演示变化识别和采集方案设计 |
+| W5 | 定位-路径规划与报告 | 起点/目标/禁入区路径规划、报告导出 | 能生成完整演示报告 |
+| W6 | 路演打磨 | Demo 数据固化、异常兜底、讲解脚本、录屏备份 | 3 分钟和 10 分钟演示均可稳定运行 |
 
 ---
 
@@ -8,13 +34,13 @@
 
 | 指标 | v1.3.2 统一测量条件 | 验收说明 |
 |------|--------------------|----------|
-| 模型推理 FPS | 640×640, batch=1, INT8, TensorRT/DeepStream, nvpmodel 最高档，稳态 5 分钟均值 | YOLOv8n ≥50 FPS |
-| 端到端视频 FPS | 1080p 输入，含解码、resize、推理、跟踪、叠加、WebSocket 输出 | 单路 ≥25 FPS，同时报告端到端延迟；内部 Integration Owner 牵头 C/D/E 联合验收 |
-| mAP | mAP@0.5，自建冻结验证集；白天 ≥5,000 张，夜间/热成像 ≥3,000 张 | 同时报告 Precision / Recall / F1 / 误报率 / 漏报率 |
-| RTK 精度 | 静态观测 1 小时，相对已知基准点的水平/垂直 StdDev | 水平 <2cm，垂直 <3cm；归入 C 包/OP-12 |
-| 续航 | 标准负载循环，放电至 BMS 保护截止 | Backpack >24h，Team >12h |
-| 环境测试 | 参考 MIL-STD-810H 514.8/516.8 与 IEC 60068 方法 | 第三方报告前不得宣称 certified |
-| EMC | 消费/户外 SKU 目标 Class B；工业/商用 SKU 可按 Class A | 按目标市场与 SKU 测试 |
+| 模型推理 FPS | 640×640, batch=1, INT8, TensorRT/DeepStream, nvpmodel 最高档，稳态 5 分钟均值 | YOLOv8n ≥50 FPS；MVP 阶段可用笔记本 GPU/CPU 降级演示，不作为正式硬件验收 |
+| 端到端视频 FPS | 1080p 输入，含解码、resize、推理、跟踪、叠加、WebSocket 输出 | 单路 ≥25 FPS，同时报告端到端延迟；内部 Integration Owner 牵头 C/D/E 联合验收；MVP 允许用预录素材保障稳定 |
+| mAP | mAP@0.5，自建冻结验证集；白天 ≥5,000 张，夜间/热成像 ≥3,000 张 | 同时报告 Precision / Recall / F1 / 误报率 / 漏报率；MVP 只做演示样例集，不作为 mAP 验收 |
+| RTK 精度 | 静态观测 1 小时，相对已知基准点的水平/垂直 StdDev | 水平 <2cm，垂直 <3cm；归入 C 包/OP-12；MVP 不承诺真实 RTK 精度 |
+| 续航 | 标准负载循环，放电至 BMS 保护截止 | Backpack >24h，Team >12h；MVP 不验证 |
+| 环境测试 | 参考 MIL-STD-810H 514.8/516.8 与 IEC 60068 方法 | 第三方报告前不得宣称 certified；MVP 不验证 |
+| EMC | 消费/户外 SKU 目标 Class B；工业/商用 SKU 可按 Class A | 按目标市场与 SKU 测试；MVP 不验证 |
 
 ---
 
@@ -25,10 +51,10 @@
 | A. Rugged Hardware & Mechatronics | OP-01 + OP-02 + OP-03 | M1–M11 | HW / ME | 结构、电源、热设计、受控热插拔、环境预验证 |
 | B. RF / Wireless / Certification | OP-04 + OP-11 中认证技术部分 | M1–M13.5 | HW / SCM / LEG | 地区化 SKU、RF/EMC 预扫描、认证资料 |
 | C. Edge Platform & Device Firmware | OP-05 + OP-09 + OP-12 | M2–M8 | EMB Lead | Jetson 镜像、OTA、LoRa、RTK/GNSS/IMU 融合 |
-| D. Application Software | OP-07 + OP-08 | M3–M9 | FS Lead | 地图、任务、报告、Dashboard、视频 UI 链路 |
-| E. AI Data & Model Optimization | OP-06 | M2–M10 | AI Lead | 数据集、mAP、模型 FPS、TensorRT engine |
+| D. Application Software | OP-07 + OP-08 | M3–M9 | FS Lead | 地图、任务、报告、Dashboard、视频 UI 链路；MVP 阶段承担笔记本 Web App 主体 |
+| E. AI Data & Model Optimization | OP-06 | M2–M10 | AI Lead | 数据集、mAP、模型 FPS、TensorRT engine；MVP 阶段承担 GOD/COD 演示模型 |
 | F. Manufacturing & Test Fixtures | OP-10 | M8–M15 | QA / SCM | 试产 SOP、工装、出厂测试、良率报告 |
-| 内部核心包 | 架构/安全/接口/验收/合规边界 | M1–M18 | PM / Architect / QA | 接口冻结、安全策略、最终整机签署 |
+| 内部核心包 | 架构/安全/接口/验收/合规边界 | M1–M18 | PM / Architect / QA | 接口冻结、安全策略、最终整机签署；MVP 脚本和合规边界由内部签署 |
 
 > 对外 SOW / RFP 使用一级包 A–F；OP-01–OP-12 只作为二级 WBS、验收点和内部跟踪项。未经 CCB 批准，不单独把 OP 拆成独立合同。
 
@@ -38,6 +64,7 @@
 
 | 关口 | 月份 | Go 判据 |
 |------|------|---------|
+| G0 MVP Demo | 6 周 | GOD/COD、CCD、定位-路径规划、报告导出可在笔记本上稳定演示；不含飞控控制；3 分钟和 10 分钟脚本完成 |
 | G1 Spec 冻结 | M2 | v1.3.2 规格、BOM、Checklist、开发计划、外协一级包 SOW 口径一致；无 P0 文档冲突 |
 | G2 POC 技术解风险 | M4.5 | AI 模型推理、端到端视频链路、RTK、热成像取流、LoRa 低速遥测、电池安全台架实测达标 |
 | G3 Alpha 软件 | M8 | Lite/Standard/Pro 分层部署跑通；无人机仅做日志、媒体、视频数据接入；C/D/E 包接口联调通过 |
@@ -54,6 +81,7 @@
 
 | WP | 修订内容 | Owner | 关联一级包 |
 |----|----------|-------|------------|
+| WP-0.1（新增） | MVP 路演演示：笔记本 + 无人机/素材导入，GOD/COD、CCD、定位-路径规划、报告导出 | PM/FS/AI/GIS | D + E + 内部核心包 |
 | WP-1.1 | 法务评审术语：避免军用采购、武器化与作战用途表述；不再写“杜绝任何军事化表述”这种无法完全匹配 Milsim 场景的绝对表述 | PM/LEG | 内部核心包 |
 | WP-1.3 | KPI 拆分模型推理 FPS 与端到端视频 FPS；端到端 FPS 由内部 Integration Owner 签署 | PM/AI/EMB/QA | C/D/E + 内部 |
 | WP-2.6 | LoRa 按地区化 SKU 采购与测试；只验收低速遥测，不验收文件传输 | EMB/SCM | C + B |
@@ -70,7 +98,12 @@
 ## 5. v1.3.2 不纳入 MVP 的事项
 
 - 控制类无人机集成。
+- 自动起飞、自动降落、自动航线下发。
 - LoRa 文件传输。
+- LoRa Mesh 实物组网。
+- Jetson/加固箱工程样机。
+- IP65/MIL-STD-810H/EMC 实测。
+- 真实 RTK <2cm 精度承诺。
 - 明文一键导出。
 - 未经授权的闭源 YOLOv8 商用嵌入。
 - 未经第三方测试的 MIL-STD-810H certified 宣称。
