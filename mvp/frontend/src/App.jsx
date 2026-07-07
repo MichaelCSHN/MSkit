@@ -749,7 +749,7 @@ export default function App() {
         <div className="basemap">
           <button className={basemap === 'street' ? 'iconbtn active' : 'iconbtn'} onClick={() => switchBasemap('street')} title="街道底图 (OpenStreetMap)"><Ico src="/icons/street.png" emoji="🗺️" /></button>
           <button className={basemap === 'sat' ? 'iconbtn active' : 'iconbtn'} onClick={() => switchBasemap('sat')} title="卫星影像 (Esri World Imagery)"><Ico src="/icons/satellite.png" emoji="🛰️" /></button>
-          <button className={is3D ? 'iconbtn active' : 'iconbtn'} onClick={toggle3D} title="3D 地形起伏 + 倾斜（右键拖动旋转，可到 85°）"><span className="ico-emoji">⛰️</span></button>
+          <button className={is3D ? 'iconbtn active' : 'iconbtn'} onClick={toggle3D} title="3D 地形起伏 + 倾斜（右键拖动旋转，可到 85°）"><Ico src="/icons/terrain.png" emoji="⛰️" /></button>
           <button className="iconbtn" disabled={!ready} onClick={locateHere} title="设为起点：以当前地图视图中心为起始区域"><Ico src="/icons/locate.png" emoji="📍" /></button>
         </div>
 
