@@ -52,6 +52,18 @@ const ZONE_KINDS = [
 ]
 const kindLabel = (k) => (ZONE_KINDS.find((z) => z.kind === k) || {}).label || k
 
+// small circle polygon ring [[lon,lat],...] around a point (meters radius)
+function circlePoly(lon, lat, rM = 8, n = 18) {
+  const dLat = rM / 111320
+  const dLon = rM / (111320 * Math.cos((lat * Math.PI) / 180))
+  const ring = []
+  for (let i = 0; i <= n; i++) {
+    const a = (2 * Math.PI * i) / n
+    ring.push([lon + dLon * Math.cos(a), lat + dLat * Math.sin(a)])
+  }
+  return ring
+}
+
 // per (scenario, role) step guide — the "what do I do, in what order" panel
 const GUIDE = {
   hs: {
@@ -108,6 +120,7 @@ export default function App() {
   const [det, setDet] = useState(null)
   const [droneView, setDroneView] = useState(null)
   const [basemap, setBasemap] = useState('street')
+  const [is3D, setIs3D] = useState(false)
   const [drawKind, setDrawKind] = useState('activity')
   const [drawN, setDrawN] = useState(0)
   const [routeProfile, setRouteProfile] = useState('foot')
@@ -129,9 +142,15 @@ export default function App() {
     m.addControl(new maplibregl.NavigationControl(), 'top-right')
 
     m.on('load', async () => {
-      for (const id of ['zones', 'tracks', 'dets', 'cov-obs', 'cov-gaps', 'route', 'draw', 'sweep', 'markers']) {
+      for (const id of ['zones', 'tracks', 'dets', 'cov-obs', 'cov-gaps', 'route', 'draw', 'sweep', 'markers', 'beacon']) {
         m.addSource(id, { type: 'geojson', data: EMPTY })
       }
+      // DEM for 3D terrain (free AWS Terrarium tiles); terrain toggled on demand
+      m.addSource('terrain-dem', {
+        type: 'raster-dem',
+        tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+        encoding: 'terrarium', tileSize: 256, maxzoom: 15,
+      })
       m.addLayer({
         id: 'zone-fill', type: 'fill', source: 'zones',
         paint: {
@@ -230,6 +249,14 @@ export default function App() {
           'circle-stroke-color': '#fff', 'circle-stroke-width': 2,
         },
       })
+      // 3D beacon (red pillar) at the target — stands up when tilted
+      m.addLayer({
+        id: 'beacon-3d', type: 'fill-extrusion', source: 'beacon',
+        paint: {
+          'fill-extrusion-color': '#ef4444', 'fill-extrusion-height': 60,
+          'fill-extrusion-base': 0, 'fill-extrusion-opacity': 0.85,
+        },
+      })
 
       // finish a multi-waypoint route by double-click or right-click
       m.on('dblclick', (e) => {
@@ -325,6 +352,14 @@ export default function App() {
       map.current.getSource('tracks').setData(s.tracks)
       map.current.getSource('dets').setData(s.detections)
       map.current.getSource('markers').setData(s.markers || EMPTY)
+      const targets = (s.markers?.features || []).filter((f) => f.properties.kind === 'target')
+      map.current.getSource('beacon').setData({
+        type: 'FeatureCollection',
+        features: targets.map((f) => ({
+          type: 'Feature',
+          geometry: { type: 'Polygon', coordinates: [circlePoly(f.geometry.coordinates[0], f.geometry.coordinates[1])] },
+        })),
+      })
       setCounts(s.counts)
       setScenario(s.activity.scenario)
       scenarioRef.current = s.activity.scenario
@@ -466,6 +501,22 @@ export default function App() {
     if (!m) return
     m.setLayoutProperty('osm', 'visibility', b === 'street' ? 'visible' : 'none')
     m.setLayoutProperty('sat', 'visibility', b === 'sat' ? 'visible' : 'none')
+  }
+
+  function toggle3D() {
+    const m = map.current
+    if (!m) return
+    const next = !is3D
+    setIs3D(next)
+    if (next) {
+      m.setTerrain({ source: 'terrain-dem', exaggeration: 1.4 })
+      m.easeTo({ pitch: 60, duration: 800 })
+      setMsg('3D 地形已开：右键拖动可倾斜/旋转（DEM 连不上则为平面）')
+    } else {
+      m.setTerrain(null)
+      m.easeTo({ pitch: 0, bearing: 0, duration: 600 })
+      setMsg('已回到 2D')
+    }
   }
 
   function renderDraw() {
@@ -637,6 +688,7 @@ export default function App() {
           <span>底图</span>
           <button className={basemap === 'street' ? 'active' : ''} onClick={() => switchBasemap('street')} title="OpenStreetMap 街道底图">街道</button>
           <button className={basemap === 'sat' ? 'active' : ''} onClick={() => switchBasemap('sat')} title="Esri 卫星影像底图">卫星</button>
+          <button className={is3D ? 'active' : ''} onClick={toggle3D} title="3D 地形起伏 + 倾斜（右键拖动旋转）">3D</button>
           <button disabled={!ready} onClick={locateHere} title="以当前地图视图中心为起始区域">📍设为起点</button>
         </div>
 
