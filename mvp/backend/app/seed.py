@@ -12,7 +12,7 @@ from .db import engine
 from .models import Activity, Zone, Track, TrackPoint, Detection
 from .services import detect
 
-LAT0, LON0 = 30.2500, 120.1300  # fallback demo center
+LAT0, LON0 = 32.74348, 130.80316  # default start location
 
 
 def _rect(cx, cy, w, h):

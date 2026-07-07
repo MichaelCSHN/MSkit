@@ -250,16 +250,6 @@ export default function App() {
         await load('organizer')
         m.resize()
         setTimeout(() => m.resize(), 300)
-        // default the starting area to the current location (once per session)
-        if (!sessionStorage.getItem('mskit_located')) {
-          const pos = await getPos()
-          if (pos) {
-            sessionStorage.setItem('mskit_located', '1')
-            await api.reset({ lat: pos.lat, lon: pos.lon })
-            await reloadActivity()
-            setMsg('已把起始区域定位到当前位置')
-          }
-        }
       } catch (err) {
         console.error(err)
         setMsg('❌ 无法连接后端（:8000）。请先启动后端，再刷新本页。')
@@ -476,13 +466,21 @@ export default function App() {
   }
 
   async function switchScenario(kind) {
-    setMsg('切换场景中（定位当前位置）…')
-    const pos = await getPos()
-    const center = pos ? { lat: pos.lat, lon: pos.lon } : undefined
-    if (kind === 'sar') await api.sarReset(center)
-    else await api.reset(center)
+    setMsg('切换场景中…')
+    if (kind === 'sar') await api.sarReset()
+    else await api.reset()
     await reloadActivity()
-    setMsg((kind === 'sar' ? '已切到搜救(SAR)' : '已切到捉迷藏') + (pos ? ' · 当前位置' : ''))
+    setMsg(kind === 'sar' ? '已切到搜救(SAR)' : '已切到捉迷藏')
+  }
+
+  async function locateHere() {
+    setMsg('定位中…')
+    const pos = await getPos()
+    if (!pos) { setMsg('无法获取定位（未授权或不可用）'); return }
+    if (scenario === 'sar') await api.sarReset({ lat: pos.lat, lon: pos.lon })
+    else await api.reset({ lat: pos.lat, lon: pos.lon })
+    await reloadActivity()
+    setMsg(`已定位到当前位置 ${pos.lat.toFixed(5)}, ${pos.lon.toFixed(5)}`)
   }
 
   async function doPlaceTargets() {
@@ -555,6 +553,7 @@ export default function App() {
           <span>底图</span>
           <button className={basemap === 'street' ? 'active' : ''} onClick={() => switchBasemap('street')}>街道</button>
           <button className={basemap === 'sat' ? 'active' : ''} onClick={() => switchBasemap('sat')}>卫星</button>
+          <button disabled={!ready} onClick={locateHere} title="以当前位置重建起始区域">📍定位</button>
         </div>
 
         {counts && (
