@@ -52,13 +52,6 @@ const ZONE_KINDS = [
 ]
 const kindLabel = (k) => (ZONE_KINDS.find((z) => z.kind === k) || {}).label || k
 
-// simulated drone "aerial" = high-zoom Esri satellite crop around a point
-function satUrl(lon, lat, h = 0.0008) {
-  const bbox = `${lon - h},${lat - h},${lon + h},${lat + h}`
-  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export`
-    + `?bbox=${bbox}&bboxSR=4326&imageSR=4326&size=480,480&format=jpg&f=image`
-}
-
 // per (scenario, role) step guide — the "what do I do, in what order" panel
 const GUIDE = {
   hs: {
@@ -102,6 +95,9 @@ export default function App() {
   const drawPts = useRef([])
   const coordRef = useRef(null)
   const routeProfileRef = useRef('foot')
+  const dvMap = useRef(null)
+  const dvMapEl = useRef(null)
+  const dvMarker = useRef(null)
 
   const [ready, setReady] = useState(false)
   const [role, setRole] = useState('organizer')
@@ -288,6 +284,33 @@ export default function App() {
 
     return () => m.remove()
   }, [])
+
+  // drone "aerial view" mini-map — satellite tiles centered on the candidate
+  useEffect(() => {
+    if (!droneView) {
+      if (dvMap.current) { dvMap.current.remove(); dvMap.current = null; dvMarker.current = null }
+      return
+    }
+    const center = [droneView.lon, droneView.lat]
+    if (dvMap.current) {
+      dvMap.current.jumpTo({ center, zoom: 18 })
+      if (dvMarker.current) dvMarker.current.setLngLat(center)
+      return
+    }
+    if (!dvMapEl.current) return
+    const mm = new maplibregl.Map({
+      container: dvMapEl.current,
+      style: {
+        version: 8,
+        sources: { sat: { type: 'raster', tiles: [SAT_URL], tileSize: 256 } },
+        layers: [{ id: 'sat', type: 'raster', source: 'sat' }],
+      },
+      center, zoom: 18, attributionControl: false,
+    })
+    dvMap.current = mm
+    mm.on('load', () => mm.resize())
+    dvMarker.current = new maplibregl.Marker({ color: '#dc2626' }).setLngLat(center).addTo(mm)
+  }, [droneView])
 
   async function load(r) {
     const id = actId.current
@@ -752,8 +775,7 @@ export default function App() {
             <span>🚁 无人机视角 · {droneView.label}</span>
             <button onClick={() => setDroneView(null)} title="关闭">×</button>
           </div>
-          <img src={satUrl(droneView.lon, droneView.lat)} alt="drone aerial"
-            onError={(e) => { e.currentTarget.style.display = 'none' }} />
+          <div ref={dvMapEl} className="dv-map" />
           <div className="dv-cap">{droneView.lat.toFixed(5)}, {droneView.lon.toFixed(5)} · 模拟卫星实拍（非真实无人机影像）</div>
         </div>
       )}
