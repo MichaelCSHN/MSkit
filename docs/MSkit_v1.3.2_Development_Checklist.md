@@ -1,6 +1,17 @@
 # MSkit v1.3.2 开发 Checklist 同步版
 
-> **基线**：`MSkit_v1.3.2_Spec.md`｜**用途**：替代历史 `MSkit_v1.3_Development_Checklist.md` 中与 v1.3.2 不一致的条目。
+> **基线**：`MSkit_v1.3.2_Spec.md`｜**用途**：替代历史 `MSkit_v1.3_Development_Checklist.md` 中与 v1.3.2 不一致的条目，并同步外协一级包 A–F 执行口径。
+
+---
+
+## Phase 0: 外协与接口治理
+
+- [ ] 对外 SOW / RFP 仅使用一级包 A–F，不直接把 OP-01–OP-12 拆成独立合同。
+- [ ] 一级包确认：A 硬件机电、B RF/认证、C 设备平台固件、D 应用软件、E AI、F 制造测试、内部核心包。
+- [ ] OP-01–OP-12 作为二级 WBS、验收项和风险跟踪项入项目管理工具。
+- [ ] API schema、数据模型、硬件接口图、无线 SKU 矩阵、坐标系/时间同步约定由内部冻结。
+- [ ] 跨包指标 owner 明确：端到端视频 FPS、加密导出、整机 IP/EMC、Pilot Batch 出厂质量均由内部 Integration/QA 最终签署。
+- [ ] 所有 SOW 同时引用 v1.3.2 覆盖层和对应 v1.3 明细文档，并列明适用章节。
 
 ---
 
@@ -12,27 +23,35 @@
 - [ ] YOLOv8/Ultralytics 授权决策：Enterprise License 或替换宽松许可框架。
 - [ ] 地区化无线 SKU 矩阵确认：CN / US / EU。
 - [ ] 电池运输合规路径确认：空运、陆运、仓储、保险、退换货。
+- [ ] 外协一级包 A/B/E 与 OP-11 法务/SBOM 预审启动条件确认。
 
-## Phase 2: 硬件与通信
+---
 
-- [ ] JetPack 6.2.1 + CUDA 12.6.10 启动验证。
-- [ ] Orin Nano/NX 从 NVMe 启动；不得写板载 64GB eMMC。
-- [ ] RTK/GNSS + IMU 定位融合：静态 1h 水平 StdDev <2cm、垂直 <3cm；多摄像头同步偏差 <5ms（K4，P0，OP-12）。
-- [ ] LoRa 仅验收位置、状态、告警、短文本；文件传输走 Wi-Fi/USB/以太网。
-- [ ] LoRa 模块和天线按目标市场频段采购，不写“868/915MHz 通用”。
-- [ ] LTE 模块按目标市场选型，不默认 EC25-EU 覆盖所有地区。
-- [ ] 标准版电池优先评估 Li-ion/LiFePO4；LiPo 仅限工程样机/专业用户版本。
-- [ ] 受控热插拔验证：低功耗保护、反接、防火、温度、过流和机械锁止。
+## Phase 2: 硬件、通信与设备平台
+
+- [ ] JetPack 6.2.1 + CUDA 12.6.10 启动验证（C 包）。
+- [ ] Orin Nano/NX 从 NVMe 启动；不得写板载 64GB eMMC（C 包）。
+- [ ] RTK/GNSS + IMU 定位融合：静态 1h 水平 StdDev <2cm、垂直 <3cm；多摄像头同步偏差 <5ms（C 包 / OP-12，K4，P0）。
+- [ ] LoRa 仅验收位置、状态、告警、短文本；文件传输走 Wi-Fi/USB/以太网（C 包 + B 包）。
+- [ ] LoRa 模块和天线按目标市场频段采购，不写“868/915MHz 通用”（B 包）。
+- [ ] LTE 模块按目标市场选型，不默认 EC25-EU 覆盖所有地区（B 包）。
+- [ ] 标准版电池优先评估 Li-ion/LiFePO4；LiPo 仅限工程样机/专业用户版本（A 包）。
+- [ ] 受控热插拔验证：低功耗保护、反接、防火、温度、过流和机械锁止（A 包）。
+
+---
 
 ## Phase 3: 软件与 AI
 
-- [ ] Lite / Standard / Pro 三档 Profile 分层部署验证。
-- [ ] 模型推理 FPS：640×640, batch=1, INT8, TensorRT/DeepStream，YOLOv8n ≥50 FPS。
-- [ ] 端到端视频 FPS：1080p 输入，含解码、resize、推理、跟踪、叠加、WebSocket 输出，单路 ≥25 FPS。
-- [ ] 白天检测 mAP@0.5 ≥0.85，冻结测试集 ≥5,000 张。
-- [ ] 夜间/热成像 mAP@0.5 ≥0.70，冻结测试集 ≥3,000 张。
+- [ ] Lite / Standard / Pro 三档 Profile 分层部署验证（C 包）。
+- [ ] 模型推理 FPS：640×640, batch=1, INT8, TensorRT/DeepStream，YOLOv8n ≥50 FPS（E 包）。
+- [ ] 端到端视频 FPS：1080p 输入，含解码、resize、推理、跟踪、叠加、WebSocket 输出，单路 ≥25 FPS（内部 Integration Owner 牵头，C/D/E 联合验收）。
+- [ ] 白天检测 mAP@0.5 ≥0.85，冻结测试集 ≥5,000 张（E 包）。
+- [ ] 夜间/热成像 mAP@0.5 ≥0.70，冻结测试集 ≥3,000 张（E 包）。
 - [ ] 报告 Precision / Recall / F1 / 误报率 / 漏报率 / 端到端延迟。
-- [ ] 加密导出：默认输出接收方公钥加密包；导出前需 PIN/FIDO2/本地账户二次确认。
+- [ ] 地图、任务、报告、Dashboard 功能联调通过（D 包）。
+- [ ] 加密导出：默认输出接收方公钥加密包；导出前需 PIN/FIDO2/本地账户二次确认（内部安全 Owner + C/D）。
+
+---
 
 ## Phase 4: 无人机与外设
 
@@ -41,17 +60,22 @@
 - [ ] Remote ID 仅显示/记录状态；不替代运营方合规义务。
 - [ ] MAVLink 接口只验收遥测读取；控制类动作需 PoC 与安全评审后单独冻结。
 
+---
+
 ## Phase 5: 环境、EMC 与认证
 
-- [ ] IP65/IP67 为整机装配后目标等级；开孔完成后做 IEC 60529 整机测试。
-- [ ] MIL-STD-810H 仅作为设计验证方法；第三方报告前不宣称 certified。
-- [ ] EMC 按 SKU 拆分：消费/户外目标 Class B，工业/商用可 Class A。
-- [ ] UN38.3 测试摘要收集；>300Wh 电池按危险品运输流程评估。
-- [ ] RoHS/REACH/WEEE、EN/UL 62368-1、SRRC/FCC/CE 资料齐备。
+- [ ] IP65/IP67 为整机装配后目标等级；开孔完成后做 IEC 60529 整机测试（A 包 + QA）。
+- [ ] MIL-STD-810H 仅作为设计验证方法；第三方报告前不宣称 certified（A 包 + QA）。
+- [ ] EMC 按 SKU 拆分：消费/户外目标 Class B，工业/商用可 Class A（B 包 + QA）。
+- [ ] UN38.3 测试摘要收集；>300Wh 电池按危险品运输流程评估（A/B/LEG）。
+- [ ] RoHS/REACH/WEEE、EN/UL 62368-1、SRRC/FCC/CE 资料齐备（B 包 + OP-11 + LEG）。
+
+---
 
 ## Phase 6: 交付与文档
 
-- [ ] README、Spec、BOM、Development Plan、Checklist 均同步 v1.3.2 口径。
+- [ ] README、Spec、BOM、Development Plan、Checklist、Outsourcing Modules 均同步 v1.3.2 口径。
 - [ ] 三个附属图入库或标记“待补充，未入库前不得作为规格完整性交付项”。
 - [ ] Pilot Batch 50 套不承担全部研发摊销；商业模型按 300–500 套重算。
+- [ ] F 包试产 SOP、工装、老化测试、出厂测试脚本和良率报告通过内部 QA 签署。
 - [ ] v1.4 冻结前完成供应商 RFQ、样品验证、法律审查、系统功耗测试和认证预测试。
