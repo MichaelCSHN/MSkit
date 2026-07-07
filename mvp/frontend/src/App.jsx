@@ -65,17 +65,6 @@ export default function App() {
   const drawPts = useRef([])
   const coordRef = useRef(null)
 
-  function getPos() {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) return resolve(null)
-      navigator.geolocation.getCurrentPosition(
-        (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
-        () => resolve(null),
-        { timeout: 6000, enableHighAccuracy: true },
-      )
-    })
-  }
-
   const [ready, setReady] = useState(false)
   const [role, setRole] = useState('organizer')
   const [mode, setMode] = useState('none')
@@ -474,13 +463,14 @@ export default function App() {
   }
 
   async function locateHere() {
-    setMsg('定位中…')
-    const pos = await getPos()
-    if (!pos) { setMsg('无法获取定位（未授权或不可用）'); return }
-    if (scenario === 'sar') await api.sarReset({ lat: pos.lat, lon: pos.lon })
-    else await api.reset({ lat: pos.lat, lon: pos.lon })
+    // use the current MAP VIEW center (where the user panned to), not GPS
+    const c = map.current.getCenter()
+    const center = { lat: +c.lat.toFixed(6), lon: +c.lng.toFixed(6) }
+    setMsg('以当前地图中心重建起始区域…')
+    if (scenario === 'sar') await api.sarReset(center)
+    else await api.reset(center)
     await reloadActivity()
-    setMsg(`已定位到当前位置 ${pos.lat.toFixed(5)}, ${pos.lon.toFixed(5)}`)
+    setMsg(`起始区域已设到当前视图中心 ${center.lat}, ${center.lon}`)
   }
 
   async function doPlaceTargets() {
@@ -553,7 +543,7 @@ export default function App() {
           <span>底图</span>
           <button className={basemap === 'street' ? 'active' : ''} onClick={() => switchBasemap('street')}>街道</button>
           <button className={basemap === 'sat' ? 'active' : ''} onClick={() => switchBasemap('sat')}>卫星</button>
-          <button disabled={!ready} onClick={locateHere} title="以当前位置重建起始区域">📍定位</button>
+          <button disabled={!ready} onClick={locateHere} title="以当前地图视图中心为起始区域">📍设为起点</button>
         </div>
 
         {counts && (
