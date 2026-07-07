@@ -109,6 +109,14 @@ const RELEVANCE = {
 
 const EMPTY = { type: 'FeatureCollection', features: [] }
 
+// image icon with graceful emoji fallback (so a missing PNG never breaks the UI)
+function Ico({ src, emoji }) {
+  const [ok, setOk] = useState(true)
+  return ok
+    ? <img className="ico" src={src} alt="" onError={() => setOk(false)} />
+    : <span className="ico-emoji">{emoji}</span>
+}
+
 export default function App() {
   const mapEl = useRef(null)
   const map = useRef(null)
@@ -739,10 +747,10 @@ export default function App() {
         </div>
 
         <div className="basemap">
-          <button className={basemap === 'street' ? 'iconbtn active' : 'iconbtn'} onClick={() => switchBasemap('street')} title="街道底图 (OpenStreetMap)">🗺️</button>
-          <button className={basemap === 'sat' ? 'iconbtn active' : 'iconbtn'} onClick={() => switchBasemap('sat')} title="卫星影像 (Esri World Imagery)">🛰️</button>
-          <button className={is3D ? 'iconbtn active' : 'iconbtn'} onClick={toggle3D} title="3D 地形起伏 + 倾斜（右键拖动旋转，可到 85°）">⛰️</button>
-          <button className="iconbtn" disabled={!ready} onClick={locateHere} title="设为起点：以当前地图视图中心为起始区域">📍</button>
+          <button className={basemap === 'street' ? 'iconbtn active' : 'iconbtn'} onClick={() => switchBasemap('street')} title="街道底图 (OpenStreetMap)"><Ico src="/icons/street.png" emoji="🗺️" /></button>
+          <button className={basemap === 'sat' ? 'iconbtn active' : 'iconbtn'} onClick={() => switchBasemap('sat')} title="卫星影像 (Esri World Imagery)"><Ico src="/icons/satellite.png" emoji="🛰️" /></button>
+          <button className={is3D ? 'iconbtn active' : 'iconbtn'} onClick={toggle3D} title="3D 地形起伏 + 倾斜（右键拖动旋转，可到 85°）"><span className="ico-emoji">⛰️</span></button>
+          <button className="iconbtn" disabled={!ready} onClick={locateHere} title="设为起点：以当前地图视图中心为起始区域"><Ico src="/icons/locate.png" emoji="📍" /></button>
         </div>
 
         {guide && showGuide && (
