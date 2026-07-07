@@ -52,6 +52,13 @@ const ZONE_KINDS = [
 ]
 const kindLabel = (k) => (ZONE_KINDS.find((z) => z.kind === k) || {}).label || k
 
+// simulated drone "aerial" = high-zoom Esri satellite crop around a point
+function satUrl(lon, lat, h = 0.0008) {
+  const bbox = `${lon - h},${lat - h},${lon + h},${lat + h}`
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export`
+    + `?bbox=${bbox}&bboxSR=4326&imageSR=4326&size=480,480&format=jpg&f=image`
+}
+
 // per (scenario, role) step guide — the "what do I do, in what order" panel
 const GUIDE = {
   hs: {
@@ -102,6 +109,7 @@ export default function App() {
   const [counts, setCounts] = useState(null)
   const [msg, setMsg] = useState('加载中…')
   const [det, setDet] = useState(null)
+  const [droneView, setDroneView] = useState(null)
   const [basemap, setBasemap] = useState('street')
   const [drawKind, setDrawKind] = useState('activity')
   const [drawN, setDrawN] = useState(0)
@@ -524,6 +532,22 @@ export default function App() {
     const r = await api.droneSweep(actId.current, altitude)
     map.current.getSource('sweep').setData(r.sweep)
     await load(roleRef.current)
+    // open a simulated drone aerial view of the most salient candidate
+    const s = await api.state(actId.current, 'organizer')
+    const feats = [...s.detections.features].sort(
+      (a, b) => (b.properties.priority || 0) - (a.properties.priority || 0))
+    if (feats.length) {
+      const f = feats[0]
+      setDroneView({ lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
+        label: `候选 #${f.properties.id} · P${f.properties.priority}` })
+    } else {
+      const sz = s.zones.features.find((z) => z.properties.kind === 'search')
+      if (sz) {
+        const ring = sz.geometry.coordinates[0]
+        setDroneView({ lon: ring.reduce((a, p) => a + p[0], 0) / ring.length,
+          lat: ring.reduce((a, p) => a + p[1], 0) / ring.length, label: '搜索区' })
+      }
+    }
     setMsg(`无人机拉网：足迹 ${r.footprint_m}m · 覆盖 ${(r.coverage_ratio * 100).toFixed(0)}% · 检出候选 ${r.detected}`)
   }
 
@@ -709,6 +733,9 @@ export default function App() {
             {det.priority > 0 && <> · 优先级 P{det.priority}</>}</div>
           <div>状态：{det.status} · {String(det.simulated) === 'true' ? '模拟/预置' : '真实推理'}</div>
           {scenario === 'sar' && (
+            <button className="dv-btn" onClick={() => setDroneView({ lon: det._lon, lat: det._lat, label: `候选 #${det.id} · P${det.priority}` })}>🚁 看无人机画面</button>
+          )}
+          {scenario === 'sar' && (
             <button className="arrive" onClick={arriveAt}>到达核查（是否真目标）</button>
           )}
           <div className="det-actions">
@@ -716,6 +743,18 @@ export default function App() {
             <button className="no" onClick={() => reviewDet('rejected')}>驳回</button>
             <button onClick={() => setDet(null)}>关闭</button>
           </div>
+        </div>
+      )}
+
+      {droneView && (
+        <div className="drone-view">
+          <div className="dv-head">
+            <span>🚁 无人机视角 · {droneView.label}</span>
+            <button onClick={() => setDroneView(null)} title="关闭">×</button>
+          </div>
+          <img src={satUrl(droneView.lon, droneView.lat)} alt="drone aerial"
+            onError={(e) => { e.currentTarget.style.display = 'none' }} />
+          <div className="dv-cap">{droneView.lat.toFixed(5)}, {droneView.lon.toFixed(5)} · 模拟卫星实拍（非真实无人机影像）</div>
         </div>
       )}
     </div>
