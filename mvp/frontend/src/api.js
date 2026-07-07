@@ -34,9 +34,9 @@ export const api = {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(center || {}),
   }),
-  routeRoads: (id, waypoints) => j(`${BASE}/activities/${id}/route/roads`, {
+  routeRoads: (id, waypoints, profile = 'foot') => j(`${BASE}/activities/${id}/route/roads`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ waypoints }),
+    body: JSON.stringify({ waypoints, profile }),
   }),
   addZone: (id, body) =>
     j(`${BASE}/activities/${id}/zones`, {

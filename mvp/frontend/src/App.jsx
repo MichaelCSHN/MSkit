@@ -64,6 +64,7 @@ export default function App() {
   const actId = useRef(null)
   const drawPts = useRef([])
   const coordRef = useRef(null)
+  const routeProfileRef = useRef('foot')
 
   const [ready, setReady] = useState(false)
   const [role, setRole] = useState('organizer')
@@ -74,6 +75,7 @@ export default function App() {
   const [basemap, setBasemap] = useState('street')
   const [drawKind, setDrawKind] = useState('activity')
   const [drawN, setDrawN] = useState(0)
+  const [routeProfile, setRouteProfile] = useState('foot')
   const [scenario, setScenario] = useState('hide_and_seek')
   const [decoys, setDecoys] = useState(4)
   const [altitude, setAltitude] = useState(90)
@@ -301,6 +303,11 @@ export default function App() {
     }
   }
 
+  function pickProfile(p) {
+    setRouteProfile(p)
+    routeProfileRef.current = p
+  }
+
   function renderRouteWps() {
     const wps = routeWps.current
     const feats = wps.map((p) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: p } }))
@@ -326,11 +333,13 @@ export default function App() {
       routeWps.current = []
       return
     }
-    setMsg('规划中（吸附道路）…')
+    setMsg('规划中…')
     try {
-      const r = await api.routeRoads(actId.current, wps)
+      const r = await api.routeRoads(actId.current, wps, routeProfileRef.current)
       map.current.getSource('route').setData(r.geojson)
-      setMsg(`路径 ${r.length_m} m · ${r.roads ? '已吸附道路 (OSRM)' : '越野直连 (道路服务不可达，A* 绕禁入区)'}`)
+      const how = { foot: '徒步(BRouter)', car: '机动车(OSRM)', offroad: '越野直连(A*)' }[r.profile] || r.profile
+      const note = (routeProfileRef.current !== 'offroad' && r.profile === 'offroad') ? '（在线路由不可达，已回退）' : ''
+      setMsg(`路径 ${r.length_m} m · ${how}${note}`)
     } catch (err) {
       setMsg('路由失败：' + err.message)
     }
@@ -585,6 +594,15 @@ export default function App() {
         <div className="actions">
           <button disabled={!ready} onClick={doChange}>变化检测 (COD)</button>
           <button disabled={!ready} onClick={doCoverage}>防护覆盖规划</button>
+          <div className="routemode">
+            <span>路线</span>
+            {[['foot', '步行'], ['car', '道路'], ['offroad', '越野']].map(([k, l]) => (
+              <button key={k} className={routeProfile === k ? 'active' : ''}
+                onClick={() => pickProfile(k)} title={k === 'foot' ? '徒步/小路(BRouter)' : k === 'car' ? '机动车道(OSRM)' : '直连绕禁入区(A*)'}>
+                {l}
+              </button>
+            ))}
+          </div>
           <button disabled={!ready} className={mode === 'route' ? 'on' : ''} onClick={toggleRoute}>
             {mode === 'route' ? '取消路径' : '路径规划'}
           </button>

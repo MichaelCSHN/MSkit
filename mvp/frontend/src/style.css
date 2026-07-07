@@ -74,6 +74,12 @@ body { font-family: system-ui, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
 .actions button.on { background: #7c3aed; color: #fff; border-color: #7c3aed; }
 .actions button:disabled { opacity: 0.5; cursor: default; }
 .actions button.reset { border-color: #ef4444; color: #b91c1c; }
+.routemode { display: flex; align-items: center; gap: 4px; }
+.routemode span { font-size: 12px; color: #666; margin-right: 2px; }
+.routemode button {
+  flex: 1; padding: 5px 4px; border: 1px solid #d0d0d0; background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px;
+}
+.routemode button.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
 .filebtn {
   padding: 8px; border: 1px dashed #9ca3af; background: #fafafa; border-radius: 7px;
   cursor: pointer; text-align: center; font-size: 13px;

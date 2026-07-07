@@ -49,7 +49,8 @@ class ResetIn(BaseModel):
 
 
 class RoadsIn(BaseModel):
-    waypoints: list[list[float]]  # [[lon,lat], ...] >=2
+    waypoints: list[list[float]]      # [[lon,lat], ...] >=2
+    profile: str = "foot"            # foot (徒步) | car (机动车) | offroad (越野直连)
 
 
 class ActivityIn(BaseModel):
@@ -382,8 +383,7 @@ def route(activity_id: int, body: RouteIn, session: Session = Depends(get_sessio
 
 
 def _osrm_route(waypoints: list[list[float]]):
-    """Snap a multi-waypoint route to roads via the public OSRM demo server.
-    Returns (coords[[lon,lat]], distance_m) or (None, None) on failure."""
+    """Car route via the public OSRM demo server (driving profile only)."""
     import urllib.request
     coords = ";".join(f"{p[0]},{p[1]}" for p in waypoints)
     url = (f"https://router.project-osrm.org/route/v1/driving/{coords}"
@@ -400,28 +400,61 @@ def _osrm_route(waypoints: list[list[float]]):
     return None, None
 
 
+def _brouter_route(waypoints: list[list[float]], profile: str = "hiking-mountain"):
+    """Walking/hiking route via BRouter (no API key). Returns ([lon,lat], dist)."""
+    import urllib.request
+    from urllib.parse import quote
+    lonlats = quote("|".join(f"{p[0]},{p[1]}" for p in waypoints), safe=",")
+    url = (f"https://brouter.de/brouter?lonlats={lonlats}"
+           f"&profile={profile}&alternativeidx=0&format=geojson")
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "MSkitMVP/0.1"})
+        with urllib.request.urlopen(req, timeout=9) as r:
+            data = json.loads(r.read())
+        feats = data.get("features")
+        if feats:
+            coords = [[c[0], c[1]] for c in feats[0]["geometry"]["coordinates"]]
+            tl = feats[0].get("properties", {}).get("track-length")
+            dist = float(tl) if tl else None
+            if coords:
+                return coords, dist
+    except Exception:
+        pass
+    return None, None
+
+
 @router.post("/activities/{activity_id}/route/roads")
 def route_roads(activity_id: int, body: RoadsIn, session: Session = Depends(get_session)):
-    """Multi-waypoint route snapped to real roads (OSRM); falls back to
-    free-space A* (avoiding no-go zones) if the routing service is unreachable."""
+    """Multi-waypoint route. profile=foot (BRouter 徒步) / car (OSRM 机动车) /
+    offroad (越野直连 A*). Any online failure falls back to offroad A* (avoids no-go)."""
     a = _get_activity(session, activity_id)
     wps = body.waypoints
     if len(wps) < 2:
         raise HTTPException(400, "need >= 2 waypoints")
-    coords, dist = _osrm_route(wps)
-    if coords:
-        length = dist if dist is not None else sum(
-            geo.haversine_m(coords[i], coords[i + 1]) for i in range(len(coords) - 1))
-    else:
+
+    coords = dist = None
+    used = "offroad"
+    if body.profile == "foot":
+        coords, dist = _brouter_route(wps)
+        used = "foot"
+    elif body.profile == "car":
+        coords, dist = _osrm_route(wps)
+        used = "car"
+
+    if not coords:  # offroad, or online routing unavailable -> A* fallback
         no_go = _no_go_polys(session, activity_id)
         coords = [wps[0]]
         for i in range(len(wps) - 1):
             seg = geo.astar(tuple(wps[i]), tuple(wps[i + 1]), no_go, a.center_lon, a.center_lat)
             coords.extend(seg[1:])
-        length = sum(geo.haversine_m(coords[i], coords[i + 1]) for i in range(len(coords) - 1))
+        dist = None
+        used = "offroad"
+
+    length = dist if dist is not None else sum(
+        geo.haversine_m(coords[i], coords[i + 1]) for i in range(len(coords) - 1))
     return {
-        "snapped": bool(dist is not None or coords),
-        "roads": coords is not None and dist is not None,
+        "profile": used,
+        "roads": used in ("foot", "car"),
         "length_m": round(length, 1),
         "path": coords,
         "geojson": {"type": "Feature", "properties": {"length_m": round(length, 1)},
