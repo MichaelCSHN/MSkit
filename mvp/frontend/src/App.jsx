@@ -97,6 +97,16 @@ const GUIDE = {
   },
 }
 
+// which shared actions apply to each (scenario, role); others are disabled
+const RELEVANCE = {
+  cod:      { hide_and_seek: ['search'], sar: [] },
+  coverage: { hide_and_seek: ['protection'], sar: [] },
+  route:    { hide_and_seek: ['organizer', 'search', 'protection'], sar: ['search'] },
+  upload:   { hide_and_seek: ['search', 'protection'], sar: [] },
+  simulate: { hide_and_seek: ['search'], sar: [] },
+  report:   { hide_and_seek: ['organizer', 'search', 'protection'], sar: ['organizer', 'search'] },
+}
+
 const EMPTY = { type: 'FeatureCollection', features: [] }
 
 export default function App() {
@@ -697,6 +707,11 @@ export default function App() {
   }
 
   const guide = (GUIDE[scenario === 'sar' ? 'sar' : 'hs'] || {})[role]
+  // gating: hide a control if it applies to NO role in this scenario;
+  // disable it if it applies to the scenario but not the current role.
+  const scKey = scenario === 'sar' ? 'sar' : 'hide_and_seek'
+  const scenarioHas = (key) => (RELEVANCE[key]?.[scKey] || []).length > 0
+  const rel = (key) => (RELEVANCE[key]?.[scKey] || []).includes(role)
 
   return (
     <div className="app">
@@ -724,11 +739,10 @@ export default function App() {
         </div>
 
         <div className="basemap">
-          <span>底图</span>
-          <button className={basemap === 'street' ? 'active' : ''} onClick={() => switchBasemap('street')} title="OpenStreetMap 街道底图">街道</button>
-          <button className={basemap === 'sat' ? 'active' : ''} onClick={() => switchBasemap('sat')} title="Esri 卫星影像底图">卫星</button>
-          <button className={is3D ? 'active' : ''} onClick={toggle3D} title="3D 地形起伏 + 倾斜（右键拖动旋转）">3D</button>
-          <button disabled={!ready} onClick={locateHere} title="以当前地图视图中心为起始区域">📍设为起点</button>
+          <button className={basemap === 'street' ? 'iconbtn active' : 'iconbtn'} onClick={() => switchBasemap('street')} title="街道底图 (OpenStreetMap)">🗺️</button>
+          <button className={basemap === 'sat' ? 'iconbtn active' : 'iconbtn'} onClick={() => switchBasemap('sat')} title="卫星影像 (Esri World Imagery)">🛰️</button>
+          <button className={is3D ? 'iconbtn active' : 'iconbtn'} onClick={toggle3D} title="3D 地形起伏 + 倾斜（右键拖动旋转，可到 85°）">⛰️</button>
+          <button className="iconbtn" disabled={!ready} onClick={locateHere} title="设为起点：以当前地图视图中心为起始区域">📍</button>
         </div>
 
         {guide && showGuide && (
@@ -782,26 +796,38 @@ export default function App() {
         )}
 
         <div className="actions">
-          <button disabled={!ready} onClick={doChange} title="变化检测(COD)：对比基线找新增/移动/消失的变化点（模拟）">变化检测 (COD)</button>
-          <button disabled={!ready} onClick={doCoverage} title="在防护区内生成观测点、覆盖率与盲区">防护覆盖规划</button>
-          <div className="routemode">
-            <span>路线</span>
-            {[['foot', '步行'], ['car', '道路'], ['offroad', '越野']].map(([k, l]) => (
-              <button key={k} className={routeProfile === k ? 'active' : ''}
-                onClick={() => pickProfile(k)} title={k === 'foot' ? '徒步/小路(BRouter)，搜救默认' : k === 'car' ? '机动车道(OSRM)，会绕大路' : '直连绕禁入区(A*)，最直'}>
-                {l}
+          {scenarioHas('cod') && (
+            <button disabled={!ready || !rel('cod')} onClick={doChange} title="变化检测(COD)：对比基线找新增/移动/消失的变化点（模拟）">变化检测 (COD)</button>
+          )}
+          {scenarioHas('coverage') && (
+            <button disabled={!ready || !rel('coverage')} onClick={doCoverage} title="在防护区内生成观测点、覆盖率与盲区">防护覆盖规划</button>
+          )}
+          {scenarioHas('route') && (
+            <>
+              <div className="routemode">
+                <span>路线</span>
+                {[['foot', '步行'], ['car', '道路'], ['offroad', '越野']].map(([k, l]) => (
+                  <button key={k} disabled={!rel('route')} className={routeProfile === k ? 'active' : ''}
+                    onClick={() => pickProfile(k)} title={k === 'foot' ? '徒步/小路(BRouter)，搜救默认' : k === 'car' ? '机动车道(OSRM)，会绕大路' : '直连绕禁入区(A*)，最直'}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <button disabled={!ready || !rel('route')} className={mode === 'route' ? 'on' : ''} onClick={toggleRoute}
+                title="点选多个途经点，双击/右键结束；按上方“路线”方式吸附">
+                {mode === 'route' ? '取消路径' : '路径规划'}
               </button>
-            ))}
-          </div>
-          <button disabled={!ready} className={mode === 'route' ? 'on' : ''} onClick={toggleRoute}
-            title="点选多个途经点，双击/右键结束；按上方“路线”方式吸附">
-            {mode === 'route' ? '取消路径' : '路径规划'}
-          </button>
-          <label className={ready ? 'filebtn' : 'filebtn dis'} title="导入无人机 GPX/CSV 航迹">
-            上传航迹 (GPX/CSV)
-            <input type="file" accept=".gpx,.csv" disabled={!ready} onChange={doUpload} hidden />
-          </label>
-          <button disabled={!ready} onClick={doSimulate} title="沿最新航迹补充若干模拟发现点">沿航迹补充发现</button>
+            </>
+          )}
+          {scenarioHas('upload') && (
+            <label className={ready && rel('upload') ? 'filebtn' : 'filebtn dis'} title="导入无人机 GPX/CSV 航迹">
+              上传航迹 (GPX/CSV)
+              <input type="file" accept=".gpx,.csv" disabled={!ready || !rel('upload')} onChange={doUpload} hidden />
+            </label>
+          )}
+          {scenarioHas('simulate') && (
+            <button disabled={!ready || !rel('simulate')} onClick={doSimulate} title="沿最新航迹补充若干模拟发现点">沿航迹补充发现</button>
+          )}
           <button disabled={!ready} onClick={() => window.open(api.reportUrl(actId.current), '_blank')}
             title="打开含“真实 vs 模拟”披露的 HTML 报告">
             打开报告
