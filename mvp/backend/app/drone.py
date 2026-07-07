@@ -97,10 +97,9 @@ def _lanczos(img: Image.Image, target: int) -> Image.Image:
 def _sr_upscale(img: Image.Image, target: int) -> Image.Image:
     """Upscale to target x target (learned SR when it looks sane, else LANCZOS).
 
-    A per-tile sanity check vs the LANCZOS baseline catches occasional
+    A per-tile sanity check vs a plain LANCZOS baseline catches occasional
     dnn_superres garbage (streaks/grid) and falls back automatically.
     """
-    base = _lanczos(img, target)
     sr = _load_sr()
     if sr:
         try:
@@ -111,14 +110,14 @@ def _sr_upscale(img: Image.Image, target: int) -> Image.Image:
             out = Image.fromarray(cv2.cvtColor(up, cv2.COLOR_BGR2RGB))
             if out.size != (target, target):
                 out = out.resize((target, target), Image.LANCZOS)
-            out = out.filter(ImageFilter.UnsharpMask(radius=1, percent=70, threshold=1))
+            plain = img.resize((target, target), Image.LANCZOS)     # unsharpened baseline
             mad = float(np.abs(np.asarray(out, dtype=np.int16)
-                               - np.asarray(base, dtype=np.int16)).mean())
-            if mad < 40:                     # coherent -> keep learned SR
-                return out
+                               - np.asarray(plain, dtype=np.int16)).mean())
+            if mad < 45:                     # coherent -> keep learned SR, then sharpen
+                return out.filter(ImageFilter.UnsharpMask(radius=2, percent=160, threshold=1))
         except Exception:
             pass
-    return base                             # garbage or unavailable -> LANCZOS
+    return _lanczos(img, target)            # garbage or unavailable -> LANCZOS
 
 
 # ---- endpoints ------------------------------------------------------------

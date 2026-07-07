@@ -350,7 +350,7 @@ export default function App() {
         sources: {
           sr: {
             type: 'raster',
-            tiles: [`${window.location.origin}/api/sr-tiles/{z}/{x}/{y}.jpg?v=3`],
+            tiles: [`${window.location.origin}/api/sr-tiles/{z}/{x}/{y}.jpg?v=4`],
             tileSize: 256, minzoom: 14, maxzoom: 19,
           },
         },
