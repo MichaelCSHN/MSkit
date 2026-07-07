@@ -107,9 +107,6 @@ export default function App() {
   const drawPts = useRef([])
   const coordRef = useRef(null)
   const routeProfileRef = useRef('foot')
-  const dvMap = useRef(null)
-  const dvMapEl = useRef(null)
-  const dvMarker = useRef(null)
   const scenarioRef = useRef('hide_and_seek')
 
   const [ready, setReady] = useState(false)
@@ -137,6 +134,7 @@ export default function App() {
       style: RASTER_STYLE,
       center: [120.13, 30.25],
       zoom: 14,
+      maxPitch: 85,   // MapLibre max (GE-like near-horizon tilt); default is 60
     })
     map.current = m
     m.addControl(new maplibregl.NavigationControl(), 'top-right')
@@ -316,33 +314,6 @@ export default function App() {
     return () => m.remove()
   }, [])
 
-  // drone "aerial view" mini-map — satellite tiles centered on the candidate
-  useEffect(() => {
-    if (!droneView) {
-      if (dvMap.current) { dvMap.current.remove(); dvMap.current = null; dvMarker.current = null }
-      return
-    }
-    const center = [droneView.lon, droneView.lat]
-    if (dvMap.current) {
-      dvMap.current.jumpTo({ center, zoom: 16 })
-      if (dvMarker.current) dvMarker.current.setLngLat(center)
-      return
-    }
-    if (!dvMapEl.current) return
-    const mm = new maplibregl.Map({
-      container: dvMapEl.current,
-      style: {
-        version: 8,
-        sources: { sat: { type: 'raster', tiles: [SAT_URL], tileSize: 256 } },
-        layers: [{ id: 'sat', type: 'raster', source: 'sat' }],
-      },
-      center, zoom: 16, attributionControl: false,
-    })
-    dvMap.current = mm
-    mm.on('load', () => mm.resize())
-    dvMarker.current = new maplibregl.Marker({ color: '#dc2626' }).setLngLat(center).addTo(mm)
-  }, [droneView])
-
   async function load(r) {
     const id = actId.current
     if (id == null) return
@@ -510,8 +481,8 @@ export default function App() {
     setIs3D(next)
     if (next) {
       m.setTerrain({ source: 'terrain-dem', exaggeration: 1.4 })
-      m.easeTo({ pitch: 60, duration: 800 })
-      setMsg('3D 地形已开：右键拖动可倾斜/旋转（DEM 连不上则为平面）')
+      m.easeTo({ pitch: 70, duration: 800 })
+      setMsg('3D 地形已开：右键拖动倾斜/旋转（可到 85°）；DEM 连不上则为平面')
     } else {
       m.setTerrain(null)
       m.easeTo({ pitch: 0, bearing: 0, duration: 600 })
@@ -829,8 +800,10 @@ export default function App() {
             <span>🚁 无人机视角 · {droneView.label}</span>
             <button onClick={() => setDroneView(null)} title="关闭">×</button>
           </div>
-          <div ref={dvMapEl} className="dv-map" />
-          <div className="dv-cap">{droneView.lat.toFixed(5)}, {droneView.lon.toFixed(5)} · 模拟卫星实拍（非真实无人机影像）</div>
+          <img className="dv-img" key={`${droneView.lat},${droneView.lon}`}
+            src={`/api/drone-image?lat=${droneView.lat}&lon=${droneView.lon}`} alt="drone aerial"
+            onError={(e) => { e.currentTarget.style.opacity = '0.2' }} />
+          <div className="dv-cap">{droneView.lat.toFixed(5)}, {droneView.lon.toFixed(5)} · 卫星超分增强（模拟，非真实无人机影像）</div>
         </div>
       )}
     </div>

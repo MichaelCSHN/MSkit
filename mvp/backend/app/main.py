@@ -13,6 +13,7 @@ from .db import init_db
 from .seed import seed_if_empty
 from .api import router
 from .tiles import router as tiles_router
+from .drone import router as drone_router
 
 
 @asynccontextmanager
@@ -44,6 +45,7 @@ app.add_middleware(
 
 app.include_router(router, prefix="/api")
 app.include_router(tiles_router, prefix="/api")
+app.include_router(drone_router, prefix="/api")
 
 
 @app.get("/")
