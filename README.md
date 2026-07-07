@@ -39,26 +39,27 @@ MSkit 在一台加固便携箱内集成高算力边缘 AI、厘米级 RTK 定位
 | 环境 | IP65（可选 IP67）为整机装配后目标等级；MIL-STD-810H 为设计验证方法，第三方测试前不宣称 certified |
 | 软件栈 | JetPack 6.2.1 + CUDA 12.6.10 + TensorRT 10.3，Docker + systemd |
 | 安全 | LUKS2 全盘加密 + TPM 2.0 + Secure Boot + RBAC + 审计日志；导出默认为加密包 + 二次确认 |
+| 外协 | 对外按 6 个一级包 A–F 管理；OP-01–OP-12 仅作为二级 WBS、验收点和风险跟踪项 |
 
 ## 文档索引
 
 | 文档 | 说明 |
 |------|------|
-| [MSkit_v1.3.2_Spec.md](docs/MSkit_v1.3.2_Spec.md) | **v1.3.2 主规格（变更集/覆盖层）**：承载最新口径、命名、数值与合规表述；工程明细仍见 v1.3 明细规格 |
-| [MSkit_v1.3.2_Development_Plan.md](docs/MSkit_v1.3.2_Development_Plan.md) | **v1.3.2 同步开发计划**：统一 AI 测量口径、无人机数据接入边界、Class A/B、加密导出验收、M16–M18 |
+| [MSkit_v1.3.2_Spec.md](docs/MSkit_v1.3.2_Spec.md) | **v1.3.2 主规格（变更集/覆盖层）**：承载最新口径、命名、数值、合规表述和外协一级包执行口径；工程明细仍见 v1.3 明细规格 |
+| [MSkit_v1.3.2_Development_Plan.md](docs/MSkit_v1.3.2_Development_Plan.md) | **v1.3.2 同步开发计划**：统一 AI 测量口径、无人机数据接入边界、Class A/B、加密导出验收、外协一级包 A–F 与 M16–M18 |
 | [MSkit_v1.3.2_BOM_Cost_Table.md](docs/MSkit_v1.3.2_BOM_Cost_Table.md) | **v1.3.2 BOM 同步表**：地区化通信 SKU、电池化学体系分层、Pilot Batch 经济性 |
-| [MSkit_v1.3.2_Development_Checklist.md](docs/MSkit_v1.3.2_Development_Checklist.md) | **v1.3.2 同步 Checklist**：修正 LoRa、EMC、环境测试、无人机、加密导出与授权检查项 |
-| [MSkit_v1.3.2_Outsourcing_Modules.md](docs/MSkit_v1.3.2_Outsourcing_Modules.md) | **v1.3.2 外协分包方案**：并行外协模块、内部保留事项、接口治理、合同与验收建议 |
+| [MSkit_v1.3.2_Development_Checklist.md](docs/MSkit_v1.3.2_Development_Checklist.md) | **v1.3.2 同步 Checklist**：修正 LoRa、EMC、环境测试、无人机、加密导出、授权检查项和外协一级包治理项 |
+| [MSkit_v1.3.2_Outsourcing_Modules.md](docs/MSkit_v1.3.2_Outsourcing_Modules.md) | **v1.3.2 外协分包方案**：6 个一级外包包 + 1 个内部核心包；OP-01–OP-12 为二级 WBS/验收项/风险跟踪项 |
 | [v1.3 明细规格](docs/MSkit_v1.3_Spec.md) | **明细基线（仍然有效）**：完整硬件/接口/附录 A–E/术语表/SBOM 许可证/风险矩阵；v1.3.2 未覆盖的明细以此为准 |
 | [v1.3 明细开发计划](docs/MSkit_v1.3_Development_Plan.md) | **明细基线（仍然有效）**：完整 WP 表（WP-ID / DoD / 关口）；v1.3.2 计划为其变更集 |
 | [v1.3 明细 BOM 表](docs/MSkit_v1.3_BOM_Cost_Table.md) | **明细基线（仍然有效）**：元件级成本明细；v1.3.2 BOM 表为其同步/覆盖层 |
 | [v1.3 明细 Checklist](docs/MSkit_v1.3_Development_Checklist.md) | **明细基线（仍然有效）**：逐项检查清单；v1.3.2 Checklist 覆盖不一致项 |
 
 > **规格来源约定（分层权威）**：v1.3.2 文档集是 v1.3 的**变更集/覆盖层**，二者配套使用——
-> - **冲突处**以 v1.3.2 为准（口径、命名、数值、合规表述）；
+> - **冲突处**以 v1.3.2 为准（口径、命名、数值、合规表述、外协一级包结构）；
 > - **未覆盖的工程明细**（接口/引脚定义、附录 A–E、术语表、SBOM 许可证清单、元件级 BOM、完整 WP 表）仍以 v1.3 明细文档为准，**v1.3 明细并未失效**。
 >
-> 如需 Word/PDF 版本用于对外分发，从上述 Markdown 导出。
+> 如需 Word/PDF 版本用于对外分发，从上述 Markdown 导出。外协 SOW / RFP 必须同时引用 v1.3.2 覆盖层和对应 v1.3 明细文档，并列明适用章节。
 
 ### 尚未提供的附属图（规格中被引用）
 
@@ -72,7 +73,7 @@ MSkit 在一台加固便携箱内集成高算力边缘 AI、厘米级 RTK 定位
 
 | 里程碑 | 时间 | 交付物 |
 |--------|------|--------|
-| M1 Spec 冻结 | M2 末 | v1.3.2 签署版 + 架构设计 |
+| M1 Spec 冻结 | M2 末 | v1.3.2 签署版 + 架构设计 + 一级外包包 SOW 草案 |
 | M2 POC 验证 | M4.5 末 | 可运行原型（Jetson + 传感器联调） |
 | M3 Alpha 软件 | M8 末 | 全部功能模块初版 |
 | M4 Beta 硬件定型 | M11 末 | EVT2 样机 |
