@@ -92,18 +92,18 @@ export default function App() {
         id: 'zone-fill', type: 'fill', source: 'zones',
         paint: {
           'fill-color': ['match', ['get', 'kind'],
-            'activity', '#3b82f6', 'search', '#f59e0b', 'protection', '#10b981',
+            'activity', '#ffffff', 'search', '#f59e0b', 'protection', '#3b82f6',
             'no_go', '#ef4444', 'safe', '#14b8a6', 'staging', '#a78bfa', '#888'],
-          'fill-opacity': ['match', ['get', 'kind'], 'no_go', 0.28, 0.12],
+          'fill-opacity': ['match', ['get', 'kind'], 'no_go', 0.28, 'activity', 0.10, 'protection', 0.12, 0.12],
         },
       })
       m.addLayer({
         id: 'zone-line', type: 'line', source: 'zones',
         paint: {
           'line-color': ['match', ['get', 'kind'],
-            'activity', '#2563eb', 'search', '#d97706', 'protection', '#059669',
+            'activity', '#ffffff', 'search', '#d97706', 'protection', '#1d4ed8',
             'no_go', '#dc2626', 'safe', '#0d9488', 'staging', '#7c3aed', '#666'],
-          'line-width': 2,
+          'line-width': ['match', ['get', 'kind'], 'activity', 2.5, 2],
         },
       })
       // (no text 'symbol' layer: MapLibre text-field needs a 'glyphs' font
@@ -437,9 +437,9 @@ export default function App() {
         )}
 
         <div className="legend">
-          <span><i style={{ background: '#3b82f6' }} />活动区</span>
+          <span><i style={{ background: '#ffffff', border: '1px solid #bbb' }} />活动区</span>
           <span><i style={{ background: '#f59e0b' }} />搜索区</span>
-          <span><i style={{ background: '#10b981' }} />防护区</span>
+          <span><i style={{ background: '#3b82f6' }} />防护区</span>
           <span><i style={{ background: '#ef4444' }} />禁入区</span>
           <span><i style={{ background: '#14b8a6' }} />安全区</span>
           <span><i style={{ background: '#f59e0b', borderRadius: '50%' }} />发现</span>
