@@ -74,6 +74,12 @@ class SimulateIn(BaseModel):
     classes: Optional[list[str]] = None
 
 
+class ChangeIn(BaseModel):
+    zone_kind: str = "activity"   # sample change points within this zone kind
+    count: int = 5
+    seed: int = 3
+
+
 class ReviewIn(BaseModel):
     status: str  # confirmed | rejected | candidate
     note: Optional[str] = None
@@ -96,6 +102,18 @@ class RouteIn(BaseModel):
 @router.get("/health")
 def health():
     return {"status": "ok", "yolo_available": detect.has_yolo()}
+
+
+@router.post("/demo/reset")
+def demo_reset(session: Session = Depends(get_session)):
+    """Wipe all data and re-seed the demo activity (for repeatable pitches)."""
+    from sqlmodel import SQLModel
+    from .db import engine
+    from .seed import seed_if_empty
+    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.create_all(engine)
+    aid = seed_if_empty()
+    return {"reset": True, "activity_id": aid}
 
 
 @router.get("/activities")
@@ -200,6 +218,32 @@ def add_detection(activity_id: int, body: DetectionIn, session: Session = Depend
     return d
 
 
+@router.post("/activities/{activity_id}/detect-image")
+async def detect_image_ep(activity_id: int, lat: float = Form(...), lon: float = Form(...),
+                          file: UploadFile = File(...), session: Session = Depends(get_session)):
+    """Real object detection on an uploaded image (YOLO if installed).
+
+    Detections are tagged at the provided lat/lon (e.g. capture position) and
+    flagged simulated=False. Returns [] gracefully if YOLO is unavailable.
+    """
+    from .db import MEDIA_DIR
+    _get_activity(session, activity_id)
+    dest = MEDIA_DIR / f"a{activity_id}_{file.filename}"
+    dest.write_bytes(await file.read())
+    results = detect.detect_image(str(dest))
+    created = []
+    for r in results:
+        d = Detection(activity_id=activity_id, kind="object", label=r["label"],
+                      confidence=r["confidence"], lat=lat, lon=lon,
+                      simulated=False, media_ref=dest.name)
+        session.add(d)
+        created.append(d)
+    session.commit()
+    for d in created:
+        session.refresh(d)
+    return {"created": len(created), "yolo_available": detect.has_yolo(), "detections": created}
+
+
 @router.get("/activities/{activity_id}/detections")
 def list_detections(activity_id: int, role: str = "organizer", session: Session = Depends(get_session)):
     _check_role(role)
@@ -207,6 +251,39 @@ def list_detections(activity_id: int, role: str = "organizer", session: Session 
     if role == "protection":
         dets = [d for d in dets if d.status == "confirmed"]
     return dets
+
+
+@router.post("/activities/{activity_id}/detections/change")
+def change_detections(activity_id: int, body: ChangeIn, session: Session = Depends(get_session)):
+    """Change detection (COD): simulate change points within a zone."""
+    a = _get_activity(session, activity_id)
+    zones = session.exec(
+        select(Zone).where(Zone.activity_id == activity_id, Zone.kind == body.zone_kind)).all()
+    if zones:
+        ring = json.loads(zones[0].polygon_json)
+    else:  # fall back to a box around the activity center
+        c = 0.006
+        ring = [[a.center_lon - c, a.center_lat - c], [a.center_lon + c, a.center_lat - c],
+                [a.center_lon + c, a.center_lat + c], [a.center_lon - c, a.center_lat + c]]
+    changes = detect.simulate_changes(ring, body.count, body.seed)
+    created = []
+    for c in changes:
+        d = Detection(activity_id=activity_id, kind="change", label=c["label"],
+                      confidence=c["confidence"], lat=c["lat"], lon=c["lon"], simulated=True)
+        session.add(d)
+        created.append(d)
+        session.add(Event(activity_id=activity_id, type="change", role="search",
+                          lat=c["lat"], lon=c["lon"], detail=f"change:{c['label']}"))
+    session.commit()
+    for d in created:
+        session.refresh(d)
+    return {"created": len(created), "detections": created}
+
+
+@router.get("/activities/{activity_id}/events")
+def list_events(activity_id: int, session: Session = Depends(get_session)):
+    return session.exec(
+        select(Event).where(Event.activity_id == activity_id).order_by(Event.ts)).all()
 
 
 @router.post("/detections/{detection_id}/review")

@@ -25,6 +25,12 @@ export const api = {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ zone_id, radius_m, spacing_m }),
     }),
+  change: (id, zone_kind = 'activity', count = 5) =>
+    j(`${BASE}/activities/${id}/detections/change`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ zone_kind, count }),
+    }),
+  reset: () => j(`${BASE}/demo/reset`, { method: 'POST' }),
   route: (id, start, goal) =>
     j(`${BASE}/activities/${id}/route`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

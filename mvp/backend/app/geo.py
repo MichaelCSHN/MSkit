@@ -197,6 +197,27 @@ def coverage_plan(zone: list[list[float]], c_lon: float, c_lat: float,
     }
 
 
+def sample_in_ring(ring: list[list[float]], count: int, seed: int = 1) -> list[list[float]]:
+    """Sample up to `count` random points inside a polygon ring ([lon,lat])."""
+    if len(ring) < 3 or count <= 0:
+        return []
+    minx, miny, maxx, maxy = bbox(ring)
+    x = (seed * 2654435761) & 0x7FFFFFFF
+    out: list[list[float]] = []
+    tries = 0
+    while len(out) < count and tries < count * 300:
+        tries += 1
+        x = (1103515245 * x + 12345) & 0x7FFFFFFF
+        rx = x / 0x7FFFFFFF
+        x = (1103515245 * x + 12345) & 0x7FFFFFFF
+        ry = x / 0x7FFFFFFF
+        lon = minx + rx * (maxx - minx)
+        lat = miny + ry * (maxy - miny)
+        if point_in_ring((lon, lat), ring):
+            out.append([round(lon, 6), round(lat, 6)])
+    return out
+
+
 def centroid(ring: list[list[float]]) -> list[float]:
     if not ring:
         return [0.0, 0.0]

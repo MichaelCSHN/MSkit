@@ -68,6 +68,26 @@ def detect_image(path: str, conf: float = 0.35) -> list[dict]:
     return out
 
 
+def simulate_changes(ring: list[list[float]], count: int = 5, seed: int = 3) -> list[dict]:
+    """Change detection (COD) demo: sample change points inside a zone ring.
+
+    Labels: new / moved / removed. Always simulated=True.
+    """
+    from .. import geo
+    pts = geo.sample_in_ring(ring, count, seed)
+    labels = ["new", "moved", "removed"]
+    rng = _lcg(seed * 7 + 1)
+    out = []
+    for i, p in enumerate(pts):
+        out.append({
+            "label": labels[i % len(labels)],
+            "confidence": round(0.5 + next(rng) * 0.45, 3),
+            "lon": p[0], "lat": p[1],
+            "simulated": True,
+        })
+    return out
+
+
 def _lcg(seed: int):
     x = seed & 0x7FFFFFFF
     while True:

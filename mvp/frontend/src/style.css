@@ -33,6 +33,12 @@ body { font-family: system-ui, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
 }
 .actions button.on { background: #7c3aed; color: #fff; border-color: #7c3aed; }
 .actions button:disabled { opacity: 0.5; cursor: default; }
+.actions button.reset { border-color: #ef4444; color: #b91c1c; }
+.filebtn {
+  padding: 8px; border: 1px dashed #9ca3af; background: #fafafa; border-radius: 7px;
+  cursor: pointer; text-align: center; font-size: 13px;
+}
+.filebtn.dis { opacity: 0.5; cursor: default; }
 
 .legend { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 11px; color: #333; margin-bottom: 8px; }
 .legend span { display: inline-flex; align-items: center; gap: 4px; }

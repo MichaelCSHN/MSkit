@@ -13,7 +13,8 @@ const RASTER_STYLE = {
   sources: {
     osm: {
       type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      // backend disk-cached tiles: offline-resilient after the area is warmed
+      tiles: ['/api/tiles/{z}/{x}/{y}.png'],
       tileSize: 256,
       attribution: '© OpenStreetMap contributors',
     },
@@ -99,8 +100,18 @@ export default function App() {
         id: 'route-line', type: 'line', source: 'route',
         paint: { 'line-color': '#7c3aed', 'line-width': 4 },
       })
+      // change detections (COD) — magenta, drawn under object detections
+      m.addLayer({
+        id: 'det-change', type: 'circle', source: 'dets',
+        filter: ['==', ['get', 'kind'], 'change'],
+        paint: {
+          'circle-radius': 6, 'circle-color': '#db2777',
+          'circle-opacity': 0.55, 'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5,
+        },
+      })
       m.addLayer({
         id: 'det-circle', type: 'circle', source: 'dets',
+        filter: ['!=', ['get', 'kind'], 'change'],
         paint: {
           'circle-radius': 7,
           'circle-color': ['match', ['get', 'status'],
@@ -112,12 +123,14 @@ export default function App() {
 
       m.on('click', (e) => {
         if (modeRef.current === 'route') return onRouteClick(e.lngLat)
-        const f = m.queryRenderedFeatures(e.point, { layers: ['det-circle'] })
+        const f = m.queryRenderedFeatures(e.point, { layers: ['det-circle', 'det-change'] })
         if (f.length) setDet(f[0].properties)
         else setDet(null)
       })
-      m.on('mouseenter', 'det-circle', () => { m.getCanvas().style.cursor = 'pointer' })
-      m.on('mouseleave', 'det-circle', () => { m.getCanvas().style.cursor = '' })
+      for (const lyr of ['det-circle', 'det-change']) {
+        m.on('mouseenter', lyr, () => { m.getCanvas().style.cursor = 'pointer' })
+        m.on('mouseleave', lyr, () => { m.getCanvas().style.cursor = '' })
+      }
 
       // load activity + initial state
       const acts = await api.activities()
@@ -183,6 +196,45 @@ export default function App() {
     setMode('none')
   }
 
+  async function doChange() {
+    const r = await api.change(actId.current, 'activity', 6)
+    await load(roleRef.current)
+    setMsg(`变化检测：新增 ${r.created} 个变化点（模拟）`)
+  }
+
+  async function doReset() {
+    setMsg('重置演示中…')
+    const r = await api.reset()
+    actId.current = r.activity_id
+    // clear planning overlays
+    for (const s of ['cov-obs', 'cov-gaps', 'route']) map.current.getSource(s).setData({ type: 'FeatureCollection', features: [] })
+    await load(roleRef.current)
+    setMsg('演示已重置为初始 Hide-and-Seek 场景')
+  }
+
+  async function doUpload(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const team = roleRef.current === 'protection' ? 'protection' : 'search'
+      const r = await api.uploadTrack(actId.current, file, team, file.name)
+      await load(roleRef.current)
+      setMsg(`已上传航迹「${file.name}」：${r.points} 点（${team}）`)
+    } catch (err) {
+      setMsg('上传失败：' + err.message)
+    }
+  }
+
+  async function doSimulate() {
+    const s = await api.state(actId.current, 'organizer')
+    const t = s.tracks.features[s.tracks.features.length - 1]
+    if (!t) { setMsg('无航迹，请先上传或重置'); return }
+    const r = await api.simulate(actId.current, t.properties.id, 6)
+    await load(roleRef.current)
+    setMsg(`沿航迹「${t.properties.name}」补充 ${r.created} 个模拟发现`)
+  }
+
   async function reviewDet(status) {
     if (!det) return
     await api.review(det.id, status)
@@ -217,13 +269,20 @@ export default function App() {
         )}
 
         <div className="actions">
+          <button disabled={!ready} onClick={doChange}>变化检测 (COD)</button>
           <button disabled={!ready} onClick={doCoverage}>防护覆盖规划</button>
           <button disabled={!ready} className={mode === 'route' ? 'on' : ''} onClick={toggleRoute}>
             {mode === 'route' ? '取消路径' : '路径规划'}
           </button>
+          <label className={ready ? 'filebtn' : 'filebtn dis'}>
+            上传航迹 (GPX/CSV)
+            <input type="file" accept=".gpx,.csv" disabled={!ready} onChange={doUpload} hidden />
+          </label>
+          <button disabled={!ready} onClick={doSimulate}>沿航迹补充发现</button>
           <button disabled={!ready} onClick={() => window.open(api.reportUrl(actId.current), '_blank')}>
             打开报告
           </button>
+          <button disabled={!ready} className="reset" onClick={doReset}>重置演示</button>
         </div>
 
         <div className="legend">
@@ -232,6 +291,8 @@ export default function App() {
           <span><i style={{ background: '#10b981' }} />防护区</span>
           <span><i style={{ background: '#ef4444' }} />禁入区</span>
           <span><i style={{ background: '#14b8a6' }} />安全区</span>
+          <span><i style={{ background: '#f59e0b', borderRadius: '50%' }} />发现</span>
+          <span><i style={{ background: '#db2777', borderRadius: '50%' }} />变化</span>
         </div>
 
         <div className="msg">{msg}</div>
