@@ -154,6 +154,7 @@ export default function App() {
   const [sarStat, setSarStat] = useState(null)
   const [regions, setRegions] = useState([])
   const [activeRegion, setActiveRegion] = useState(null)
+  const [dvZoom, setDvZoom] = useState(18)
 
   // init map + data
   useEffect(() => {
@@ -364,7 +365,7 @@ export default function App() {
     const rg = regionRef.current
     const tiles = rg ? rg.tms : `${window.location.origin}/api/sr-tiles/{z}/{x}/{y}.jpg?v=5`
     const maxz = rg ? (rg.maxzoom || 22) : 19
-    const startZoom = rg ? 20 : 18
+    const startZoom = rg ? 21 : 18
     const rgId = rg ? rg.id : null
     if (dvMap.current && dvRegionId.current === rgId) {
       dvMap.current.jumpTo({ center, zoom: startZoom })
@@ -393,6 +394,8 @@ export default function App() {
     })
     dvMap.current = mm
     mm.on('load', () => mm.resize())
+    setDvZoom(startZoom)
+    mm.on('zoom', () => setDvZoom(mm.getZoom()))
     dvMarker.current = new maplibregl.Marker({ color: '#dc2626' }).setLngLat(center).addTo(mm)
   }, [droneView, activeRegion])
 
@@ -984,9 +987,9 @@ export default function App() {
             <button onClick={() => setDroneView(null)} title="关闭">×</button>
           </div>
           <div ref={dvMapEl} className="dv-map" />
-          <div className="dv-cap">{droneView.lat.toFixed(5)}, {droneView.lon.toFixed(5)} · {activeRegion
-            ? `真实无人机正射影像 (OAM · ${Math.round(activeRegion.gsd * 100)}cm · ${activeRegion.license})·滚轮缩放`
-            : '卫星超分(Real-ESRGAN)·滚轮缩放·模拟非真实无人机影像'}</div>
+          <div className="dv-cap">{droneView.lat.toFixed(5)}, {droneView.lon.toFixed(5)} · z{dvZoom.toFixed(1)} · {activeRegion
+            ? `真实正射 OAM ${Math.round(activeRegion.gsd * 100)}cm(至 z${activeRegion.maxzoom || 22})·滚轮放大`
+            : '卫星超分(Real-ESRGAN)·滚轮缩放·模拟影像'}</div>
         </div>
       )}
     </div>
