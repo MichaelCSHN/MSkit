@@ -1178,9 +1178,9 @@ export default function App() {
               </div>
               <div className="dv-speed">
                 <span>速度</span>
-                {[0.5, 1, 2, 4].map((s) => (
+                {[[0.25, '/4'], [0.5, '/2'], [1, '1'], [2, '2x'], [4, '4x']].map(([s, lb]) => (
                   <button key={s} className={cruiseSpeed === s ? 'active' : ''}
-                    onClick={() => setCruiseSpeedVal(s)}>{s}×</button>
+                    onClick={() => setCruiseSpeedVal(s)}>{lb}</button>
                 ))}
               </div>
             </div>
