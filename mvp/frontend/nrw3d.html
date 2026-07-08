@@ -7,10 +7,11 @@
     <title>MSkit · NRW 3D 实景无人机预览</title>
     <style>
       * { box-sizing: border-box; }
-      html, body, #root { margin: 0; height: 100%; width: 100%; background: #0b1220; overflow: hidden; }
+      html, body { margin: 0; height: 100%; width: 100%; background: #0b1220; overflow: hidden; }
       body { font-family: system-ui, "Segoe UI", "Microsoft YaHei", Arial, sans-serif; }
+      #cesiumContainer { position: fixed; inset: 0; }
       .hud {
-        position: fixed; top: 12px; left: 12px; z-index: 10; width: 320px;
+        position: fixed; top: 12px; left: 12px; z-index: 10; width: 330px;
         background: rgba(11, 18, 32, 0.86); color: #e5e7eb; border-radius: 10px;
         padding: 12px 14px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
       }
@@ -23,11 +24,18 @@
       }
       .hud .spots button:hover { background: #1f2937; border-color: #3b82f6; }
       .hud .status { font-size: 11px; color: #9ca3af; border-top: 1px solid #1f2937; padding-top: 8px; }
-      .hud .back { color: #93c5fd; font-size: 11px; text-decoration: none; }
+      .hud .back { color: #93c5fd; }
     </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="cesiumContainer"></div>
+    <div class="hud">
+      <div class="title">🌄 NRW 3D 实景无人机预览
+        <span>CesiumJS + I3S · 10cm 实景网格 · 公共领域(DL-DE Zero 2.0)</span>
+      </div>
+      <div class="spots" id="spots"></div>
+      <div class="status" id="status">初始化…</div>
+    </div>
     <script type="module" src="/src/nrw3d.jsx"></script>
   </body>
 </html>

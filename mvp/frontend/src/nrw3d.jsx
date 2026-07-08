@@ -1,81 +1,69 @@
 /* Standalone prototype: GE-style photorealistic 3D flythrough over rural /
- * suburban North Rhine-Westphalia (NRW), streamed live from the open
- * NRW 3D-Mesh I3S service (10 cm textured reality mesh, Datenlizenz DE Zero 2.0
- * — effectively public domain, no key, no download).
+ * suburban North Rhine-Westphalia (NRW), streamed live from the open NRW
+ * 3D-Mesh I3S service (10 cm textured reality mesh, Datenlizenz DE Zero 2.0 —
+ * public domain, no key, no download).
  *
- * Renderer: deck.gl Tile3DLayer + loaders.gl I3SLoader. This is decoupled from
- * the MapLibre main app (MapLibre cannot render 3D Tiles / I3S natively).
+ * Renderer: CesiumJS I3SDataProvider. Cesium's I3S support was built with Esri
+ * to consume production scene layers (often in a projected CRS like this one's
+ * ETRS89/UTM32 = EPSG:25832), so it should georeference the mesh where deck.gl's
+ * loader could not. Decoupled from the MapLibre main app.
  */
-import { createRoot } from 'react-dom/client'
-import { useState, useCallback } from 'react'
-import DeckGL from '@deck.gl/react'
-import { FlyToInterpolator } from '@deck.gl/core'
-import { Tile3DLayer } from '@deck.gl/geo-layers'
-import { I3SLoader } from '@loaders.gl/i3s'
+import * as Cesium from 'cesium'
+import 'cesium/Build/Cesium/Widgets/widgets.css'
 
-// I3S IntegratedMesh scene layer (verified live: ACAO:* so it streams in-browser)
-const SCENE = 'https://www.gis.nrw.de/geobasis/3D_mesh/SceneServer/layers/0'
+// I3S IntegratedMesh scene service (root URL). Verified live, ACAO:*.
+const SCENE = 'https://www.gis.nrw.de/geobasis/3D_mesh/SceneServer'
 
-// rural / suburban vantage points inside NRW (SAR-relevant terrain), + one city
+// rural / suburban vantage points inside NRW (SAR-relevant terrain) + one city
 const SPOTS = [
-  { key: 'eifel', name: 'Eifel 森林 (Monschau)', longitude: 6.2536, latitude: 50.5548 },
-  { key: 'muenster', name: 'Münsterland 农田 (Billerbeck)', longitude: 7.2946, latitude: 51.9793 },
-  { key: 'sauerland', name: 'Sauerland 森林 (Winterberg)', longitude: 8.5306, latitude: 51.1951 },
-  { key: 'koeln', name: 'Köln 城区 (对比)', longitude: 6.9578, latitude: 50.9413 },
+  { name: 'Eifel 森林 (Monschau)', lon: 6.2536, lat: 50.5548 },
+  { name: 'Münsterland 农田 (Billerbeck)', lon: 7.2946, lat: 51.9793 },
+  { name: 'Sauerland 森林 (Winterberg)', lon: 8.5306, lat: 51.1951 },
+  { name: 'Köln 城区 (对比)', lon: 6.9578, lat: 50.9413 },
 ]
 
-const INITIAL = {
-  longitude: SPOTS[0].longitude, latitude: SPOTS[0].latitude,
-  zoom: 16.5, pitch: 65, bearing: 20, maxPitch: 85,
-}
+const statusEl = document.getElementById('status')
+const spotsEl = document.getElementById('spots')
+const setStatus = (t) => { statusEl.innerHTML = t + ' · <a class="back" href="/index.html">← 返回主界面</a>' }
 
-function App() {
-  const [viewState, setViewState] = useState(INITIAL)
-  const [status, setStatus] = useState('连接 NRW 3D-Mesh…（首次拉取瓦片需几秒）')
-  const [tiles, setTiles] = useState(0)
+// No Cesium ion (avoid needing a token): OSM imagery + plain ellipsoid globe.
+Cesium.Ion.defaultAccessToken = undefined
+const viewer = new Cesium.Viewer('cesiumContainer', {
+  baseLayerPicker: false, geocoder: false, homeButton: false, sceneModePicker: false,
+  animation: false, timeline: false, navigationHelpButton: false, infoBox: false,
+  selectionIndicator: false, fullscreenButton: false,
+  terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+})
+viewer.imageryLayers.removeAll()
+viewer.imageryLayers.addImageryProvider(
+  new Cesium.OpenStreetMapImageryProvider({ url: 'https://tile.openstreetmap.org/' }))
+viewer.scene.globe.show = true
 
-  const flyTo = useCallback((s) => {
-    setViewState((v) => ({
-      ...v, longitude: s.longitude, latitude: s.latitude, zoom: 16.5, pitch: 65,
-      transitionDuration: 2500, transitionInterpolator: new FlyToInterpolator({ curve: 1.4 }),
-    }))
-    setStatus(`飞往 ${s.name}…`)
-  }, [])
-
-  const layer = new Tile3DLayer({
-    id: 'nrw-mesh',
-    data: SCENE,
-    loader: I3SLoader,
-    onTilesetLoad: () => setStatus('已连接 · 左键拖动旋转/倾斜 · 滚轮缩放 · 右键平移'),
-    onTileLoad: () => setTiles((n) => n + 1),
-    onTileError: (_t, _url, message) => setStatus('瓦片错误：' + message),
+function flyTo(s, altitude = 900) {
+  setStatus(`飞往 ${s.name}…`)
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(s.lon, s.lat, altitude),
+    orientation: { heading: Cesium.Math.toRadians(20), pitch: Cesium.Math.toRadians(-35), roll: 0 },
+    duration: 2.5,
   })
-
-  return (
-    <>
-      <DeckGL
-        viewState={viewState}
-        onViewStateChange={(e) => setViewState(e.viewState)}
-        controller={{ maxPitch: 85, inertia: true }}
-        layers={[layer]}
-        parameters={{ clearColor: [0.04, 0.07, 0.11, 1] }}
-      />
-      <div className="hud">
-        <div className="title">🌄 NRW 3D 实景无人机预览
-          <span>deck.gl + I3S · 10cm 实景网格 · 公共领域(DL-DE Zero 2.0)</span>
-        </div>
-        <div className="spots">
-          {SPOTS.map((s) => (
-            <button key={s.key} onClick={() => flyTo(s)}>{s.name}</button>
-          ))}
-        </div>
-        <div className="status">
-          {status} · 瓦片 {tiles} ·{' '}
-          <a className="back" href="/index.html">← 返回主界面</a>
-        </div>
-      </div>
-    </>
-  )
 }
 
-createRoot(document.getElementById('root')).render(<App />)
+for (const s of SPOTS) {
+  const b = document.createElement('button')
+  b.textContent = s.name
+  b.onclick = () => flyTo(s)
+  spotsEl.appendChild(b)
+}
+
+setStatus('连接 NRW 3D-Mesh…（首次几秒）')
+;(async () => {
+  try {
+    const provider = await Cesium.I3SDataProvider.fromUrl(SCENE)
+    viewer.scene.primitives.add(provider)
+    setStatus('已连接 · 左键拖旋转 · 右键/滚轮缩放 · 中键倾斜')
+    flyTo(SPOTS[0], 1200)
+  } catch (err) {
+    console.error('I3S load failed:', err)
+    setStatus('❌ 加载失败：' + (err && err.message ? err.message : err))
+  }
+})()
