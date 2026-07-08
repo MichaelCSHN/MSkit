@@ -15,6 +15,7 @@ from .api import router
 from .tiles import router as tiles_router
 from .drone import router as drone_router
 from .hires import router as hires_router
+from .geoscene import router as geoscene_router
 
 
 @asynccontextmanager
@@ -48,6 +49,7 @@ app.include_router(router, prefix="/api")
 app.include_router(tiles_router, prefix="/api")
 app.include_router(drone_router, prefix="/api")
 app.include_router(hires_router, prefix="/api")
+app.include_router(geoscene_router, prefix="/api")
 
 
 @app.get("/")

@@ -55,6 +55,7 @@ export const api = {
   },
   reportUrl: (id) => `${BASE}/activities/${id}/report.html`,
   hiresRegions: () => j(`${BASE}/hires-regions`),
+  geoscene: ([w, s, e, n]) => j(`${BASE}/geoscene/features?w=${w}&s=${s}&e=${e}&n=${n}`),
 
   // --- SAR (search & rescue) ---
   sarReset: (center) => j(`${BASE}/demo/sar`, {

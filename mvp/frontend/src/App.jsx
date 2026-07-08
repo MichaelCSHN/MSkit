@@ -169,7 +169,7 @@ export default function App() {
     m.addControl(new maplibregl.NavigationControl(), 'top-right')
 
     m.on('load', async () => {
-      for (const id of ['zones', 'tracks', 'dets', 'cov-obs', 'cov-gaps', 'route', 'draw', 'sweep', 'markers', 'beacon']) {
+      for (const id of ['zones', 'tracks', 'dets', 'cov-obs', 'cov-gaps', 'route', 'draw', 'sweep', 'markers', 'beacon', 'geoscene']) {
         m.addSource(id, { type: 'geojson', data: EMPTY })
       }
       // DEM for 3D terrain (free AWS Terrarium tiles); terrain toggled on demand
@@ -178,6 +178,38 @@ export default function App() {
         tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
         encoding: 'terrarium', tileSize: 256, maxzoom: 15,
       })
+      // GeoScene (geo-plausible 3D from OSM): landcover fills + extruded
+      // buildings / tree canopy. Drawn under the mission overlays.
+      m.addLayer({
+        id: 'geo-water', type: 'fill', source: 'geoscene',
+        filter: ['==', ['get', 'kind'], 'water'],
+        paint: { 'fill-color': '#2f6fb0', 'fill-opacity': 0.5 },
+      })
+      m.addLayer({
+        id: 'geo-ground', type: 'fill', source: 'geoscene',
+        filter: ['in', ['get', 'kind'], ['literal', ['farmland', 'grass', 'meadow']]],
+        paint: {
+          'fill-color': ['match', ['get', 'kind'], 'farmland', '#c9b46e', '#8fbf6a'],
+          'fill-opacity': 0.3,
+        },
+      })
+      m.addLayer({
+        id: 'geo-wood-3d', type: 'fill-extrusion', source: 'geoscene',
+        filter: ['==', ['get', 'kind'], 'wood'],
+        paint: {
+          'fill-extrusion-color': '#3f6b3a', 'fill-extrusion-height': 16,
+          'fill-extrusion-base': 0, 'fill-extrusion-opacity': 0.82,
+        },
+      })
+      m.addLayer({
+        id: 'geo-build-3d', type: 'fill-extrusion', source: 'geoscene',
+        filter: ['==', ['get', 'kind'], 'building'],
+        paint: {
+          'fill-extrusion-color': '#cbab7d', 'fill-extrusion-height': ['get', 'height'],
+          'fill-extrusion-base': 0, 'fill-extrusion-opacity': 0.95,
+        },
+      })
+
       m.addLayer({
         id: 'zone-fill', type: 'fill', source: 'zones',
         paint: {
@@ -576,6 +608,20 @@ export default function App() {
     m.addLayer({ id: 'hires-layer', type: 'raster', source: 'hires' }, 'zone-fill')
   }
 
+  // GeoScene: fetch OSM buildings/landcover for the region and feed the
+  // extrusion/fill layers (geo-plausible 3D). Offline-cached by the backend.
+  async function loadGeoScene(region) {
+    if (!map.current.getSource('geoscene')) return
+    try {
+      const fc = await api.geoscene(region.bbox)
+      map.current.getSource('geoscene').setData(fc)
+      const c = fc.counts || {}
+      setMsg(`GeoScene：建筑 ${c.building || 0} · 林地 ${c.wood || 0} · 水体 ${c.water || 0}（开 ⛰️3D 看立体）`)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   async function selectRegion(region) {
     if (!region) { clearRegion(); return }
     regionRef.current = region
@@ -590,6 +636,7 @@ export default function App() {
     await reloadActivity()
     setHiresLayer(region)           // re-add (reloadActivity may reset style order)
     map.current.jumpTo({ center: [lon, lat], zoom: 17 })
+    loadGeoScene(region)            // buildings / trees / water for this AOI
     // instantly preview the real imagery at the (covered) region center
     setDroneView({ lon, lat, label: `高清预览 · ${region.name}` })
     setMsg(`高清区「${region.name}」· ${Math.round(region.gsd * 100)}cm · ${region.license}（无人机画面为真实正射影像）`)
@@ -599,6 +646,7 @@ export default function App() {
     regionRef.current = null
     setActiveRegion(null)
     setHiresLayer(null)
+    if (map.current.getSource('geoscene')) map.current.getSource('geoscene').setData(EMPTY)
     setMsg('已关闭高清区，无人机画面恢复卫星超分')
   }
 
