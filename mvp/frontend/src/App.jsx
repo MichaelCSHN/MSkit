@@ -604,8 +604,10 @@ export default function App() {
       minzoom: 12, maxzoom: region.maxzoom || 22,
       attribution: `© ${region.provider} · ${region.license}`,
     })
-    // insert beneath the first overlay so zones/detections stay on top
-    m.addLayer({ id: 'hires-layer', type: 'raster', source: 'hires' }, 'zone-fill')
+    // insert as the GROUND texture: beneath the GeoScene fills/extrusions
+    // (buildings, trees) and all mission overlays, so nothing is painted over
+    const below = m.getLayer('geo-water') ? 'geo-water' : 'zone-fill'
+    m.addLayer({ id: 'hires-layer', type: 'raster', source: 'hires' }, below)
   }
 
   // GeoScene: fetch OSM buildings/landcover for the region and feed the
