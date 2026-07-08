@@ -55,14 +55,21 @@ body { font-family: system-ui, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
 .dv-head button { border: none; background: transparent; color: #e5e7eb; font-size: 16px; cursor: pointer; line-height: 1; }
 .dv-map { display: block; width: 300px; height: 300px; background: #0b1220; }
 .dv-cap { padding: 6px 10px; color: #93c5fd; font-size: 11px; font-variant-numeric: tabular-nums; }
-.dv-cruise { display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
-.dv-cruise button {
+.dv-player { padding: 6px 10px 8px; }
+.dv-ctrls { display: flex; align-items: center; gap: 8px; }
+.dv-ctrls button {
   border: 1px solid #334155; background: #111827; color: #e5e7eb; border-radius: 6px;
   width: 26px; height: 24px; cursor: pointer; font-size: 12px; line-height: 1; padding: 0;
 }
-.dv-cruise span { color: #93c5fd; font-size: 11px; font-variant-numeric: tabular-nums; min-width: 30px; }
-.dv-prog { flex: 1; height: 5px; background: #1f2937; border-radius: 3px; overflow: hidden; }
-.dv-prog div { height: 100%; background: #22d3ee; transition: width 0.1s linear; }
+.dv-ctrls span { color: #93c5fd; font-size: 11px; font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
+.dv-seek { flex: 1; height: 5px; cursor: pointer; accent-color: #22d3ee; }
+.dv-speed { display: flex; align-items: center; gap: 5px; margin-top: 7px; }
+.dv-speed span { color: #9ca3af; font-size: 11px; }
+.dv-speed button {
+  border: 1px solid #334155; background: #111827; color: #cbd5e1; border-radius: 5px;
+  padding: 2px 8px; cursor: pointer; font-size: 11px;
+}
+.dv-speed button.active { background: #0e7490; color: #fff; border-color: #22d3ee; }
 
 .basemap { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
 .basemap .iconbtn {

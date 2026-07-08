@@ -159,6 +159,8 @@ export default function App() {
   const [cruiseOn, setCruiseOn] = useState(false)
   const [cruisePlaying, setCruisePlaying] = useState(false)
   const [cruiseP, setCruiseP] = useState(0)
+  const [cruiseSpeed, setCruiseSpeed] = useState(1)
+  const speedRef = useRef(1)
 
   // init map + data
   useEffect(() => {
@@ -793,7 +795,7 @@ export default function App() {
     if (dvMap.current) {
       if (!c.inited) { dvMap.current.setZoom(19); c.inited = true }
       const dt = Math.min(64, now - c.last)
-      c.dist = Math.min(c.total, c.dist + c.total * (dt / c.dur))
+      c.dist = Math.min(c.total, c.dist + c.total * (dt / c.dur) * c.speed)
       const p = posAlong(c)
       dvMap.current.setCenter(p)
       if (dvMarker.current) dvMarker.current.setLngLat(p)
@@ -818,8 +820,9 @@ export default function App() {
       cum.push(cum[i - 1] + Math.hypot(dx, dy))
     }
     cruiseRef.current = {
-      path, cum, total: cum[cum.length - 1] || 1, dist: 0, dur: 26000,
-      last: performance.now(), playing: true, inited: false, endFocus, raf: 0,
+      path, cum, total: cum[cum.length - 1] || 1, dist: 0, dur: 60000,
+      speed: speedRef.current, last: performance.now(), playing: true,
+      inited: false, endFocus, raf: 0,
     }
     setCruiseOn(true); setCruisePlaying(true); setCruiseP(0)
     setDroneView({ lon: path[0][0], lat: path[0][1], label: '沿航迹巡航' })
@@ -841,6 +844,44 @@ export default function App() {
     if (c && c.raf) cancelAnimationFrame(c.raf)
     cruiseRef.current = null
     setCruiseOn(false); setCruisePlaying(false)
+  }
+
+  function cruiseSeek(frac) {
+    const c = cruiseRef.current
+    if (!c) return
+    c.dist = Math.max(0, Math.min(1, frac)) * c.total
+    c.last = performance.now()
+    setCruiseP(c.dist / c.total)
+    if (dvMap.current) {
+      const p = posAlong(c)
+      dvMap.current.setCenter(p)
+      if (dvMarker.current) dvMarker.current.setLngLat(p)
+    }
+  }
+
+  function scrubStart() {
+    const c = cruiseRef.current
+    if (!c) return
+    c.wasPlaying = c.playing
+    c.playing = false
+    setCruisePlaying(false)
+  }
+
+  function scrubEnd() {
+    const c = cruiseRef.current
+    if (!c) return
+    if (c.wasPlaying && c.dist < c.total) {
+      c.playing = true
+      c.last = performance.now()
+      setCruisePlaying(true)
+      c.raf = requestAnimationFrame(cruiseStep)
+    }
+  }
+
+  function setCruiseSpeedVal(s) {
+    speedRef.current = s
+    setCruiseSpeed(s)
+    if (cruiseRef.current) cruiseRef.current.speed = s
   }
 
   async function doDroneSweep() {
@@ -1123,13 +1164,25 @@ export default function App() {
           </div>
           <div ref={dvMapEl} className="dv-map" />
           {cruiseOn && (
-            <div className="dv-cruise">
-              <button onClick={toggleCruise} title={cruisePlaying ? '暂停' : (cruiseP >= 1 ? '重播' : '继续')}>
-                {cruisePlaying ? '⏸' : (cruiseP >= 1 ? '↻' : '▶')}
-              </button>
-              <div className="dv-prog"><div style={{ width: `${Math.round(cruiseP * 100)}%` }} /></div>
-              <span>{Math.round(cruiseP * 100)}%</span>
-              <button onClick={stopCruise} title="停止巡航">⏹</button>
+            <div className="dv-player">
+              <div className="dv-ctrls">
+                <button onClick={toggleCruise} title={cruisePlaying ? '暂停' : (cruiseP >= 1 ? '重播' : '播放')}>
+                  {cruisePlaying ? '⏸' : (cruiseP >= 1 ? '↻' : '▶')}
+                </button>
+                <input className="dv-seek" type="range" min="0" max="1000"
+                  value={Math.round(cruiseP * 1000)}
+                  onPointerDown={scrubStart} onPointerUp={scrubEnd}
+                  onChange={(e) => cruiseSeek(+e.target.value / 1000)} />
+                <span>{Math.round(cruiseP * 100)}%</span>
+                <button onClick={stopCruise} title="停止巡航">⏹</button>
+              </div>
+              <div className="dv-speed">
+                <span>速度</span>
+                {[0.5, 1, 2, 4].map((s) => (
+                  <button key={s} className={cruiseSpeed === s ? 'active' : ''}
+                    onClick={() => setCruiseSpeedVal(s)}>{s}×</button>
+                ))}
+              </div>
             </div>
           )}
           <div className="dv-cap">{droneView.lat.toFixed(5)}, {droneView.lon.toFixed(5)} · z{dvZoom.toFixed(1)} · {activeRegion
