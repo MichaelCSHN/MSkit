@@ -10,4 +10,10 @@ export default defineConfig({
       '/api': { target: 'http://localhost:8000', changeOrigin: true },
     },
   },
+  // multi-page: main app (index.html) + standalone NRW 3D flythrough (nrw3d.html)
+  build: {
+    rollupOptions: {
+      input: { main: 'index.html', nrw3d: 'nrw3d.html' },
+    },
+  },
 })

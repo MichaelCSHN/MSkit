@@ -813,6 +813,11 @@ export default function App() {
           <button className="iconbtn" disabled={!ready} onClick={locateHere} title="设为起点：以当前地图视图中心为起始区域"><Ico src="/icons/locate.png" emoji="📍" /></button>
         </div>
 
+        <button className="nrw3d-btn" onClick={() => window.open('/nrw3d.html', '_blank')}
+          title="打开 GE 式实景 3D 飞掠（NRW 10cm 实景网格，deck.gl + I3S，公共领域）">
+          🌄 NRW 3D 实景飞掠（实验）
+        </button>
+
         {regions.length > 0 && (
           <div className="hires">
             <span title="选择一块真实无人机高清正射影像区域；活动区将约束到此处，无人机画面用真实影像">🛩️ 高清区</span>
