@@ -813,11 +813,6 @@ export default function App() {
           <button className="iconbtn" disabled={!ready} onClick={locateHere} title="设为起点：以当前地图视图中心为起始区域"><Ico src="/icons/locate.png" emoji="📍" /></button>
         </div>
 
-        <button className="nrw3d-btn" onClick={() => window.open('/nrw3d.html', '_blank')}
-          title="打开 GE 式实景 3D 飞掠（NRW 10cm 实景网格，deck.gl + I3S，公共领域）">
-          🌄 NRW 3D 实景飞掠（实验）
-        </button>
-
         {regions.length > 0 && (
           <div className="hires">
             <span title="选择一块真实无人机高清正射影像区域；活动区将约束到此处，无人机画面用真实影像">🛩️ 高清区</span>
@@ -993,7 +988,7 @@ export default function App() {
           </div>
           <div ref={dvMapEl} className="dv-map" />
           <div className="dv-cap">{droneView.lat.toFixed(5)}, {droneView.lon.toFixed(5)} · z{dvZoom.toFixed(1)} · {activeRegion
-            ? `真实正射 OAM ${Math.round(activeRegion.gsd * 100)}cm(至 z${activeRegion.maxzoom || 22})·滚轮放大`
+            ? `真实正射 ${activeRegion.src || 'OAM'} ${Math.round(activeRegion.gsd * 100)}cm(至 z${activeRegion.maxzoom || 22})·滚轮放大`
             : '卫星超分(Real-ESRGAN)·滚轮缩放·模拟影像'}</div>
         </div>
       )}
