@@ -379,12 +379,15 @@ export default function App() {
       style: {
         version: 8,
         sources: {
-          sr: {
-            type: 'raster', tiles: [tiles],
-            tileSize: 256, minzoom: 14, maxzoom: maxz,
-          },
+          // global satellite base so the view is never blank, even where the
+          // high-res OAM image or SR tiles have no coverage
+          base: { type: 'raster', tiles: [SAT_URL], tileSize: 256, maxzoom: 19 },
+          sr: { type: 'raster', tiles: [tiles], tileSize: 256, minzoom: 14, maxzoom: maxz },
         },
-        layers: [{ id: 'sr', type: 'raster', source: 'sr' }],
+        layers: [
+          { id: 'base', type: 'raster', source: 'base' },
+          { id: 'sr', type: 'raster', source: 'sr' },
+        ],
       },
       center, zoom: startZoom, minZoom: 15, maxZoom: maxz, attributionControl: false,
     })
@@ -584,6 +587,8 @@ export default function App() {
     await reloadActivity()
     setHiresLayer(region)           // re-add (reloadActivity may reset style order)
     map.current.jumpTo({ center: [lon, lat], zoom: 17 })
+    // instantly preview the real imagery at the (covered) region center
+    setDroneView({ lon, lat, label: `高清预览 · ${region.name}` })
     setMsg(`高清区「${region.name}」· ${Math.round(region.gsd * 100)}cm · ${region.license}（无人机画面为真实正射影像）`)
   }
 
