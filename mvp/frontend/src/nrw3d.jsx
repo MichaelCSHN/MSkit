@@ -23,8 +23,10 @@ const SPOTS = [
 ]
 
 const statusEl = document.getElementById('status')
+const meshEl = document.getElementById('mesh')
 const spotsEl = document.getElementById('spots')
 const setStatus = (t) => { statusEl.innerHTML = t + ' · <a class="back" href="/index.html">← 返回主界面</a>' }
+const setMesh = (t) => { meshEl.textContent = t }
 
 // No Cesium ion (avoid needing a token): OSM imagery + plain ellipsoid globe.
 Cesium.Ion.defaultAccessToken = undefined
@@ -55,15 +57,30 @@ for (const s of SPOTS) {
   spotsEl.appendChild(b)
 }
 
-setStatus('连接 NRW 3D-Mesh…（首次几秒）')
+setStatus('左键拖旋转 · 右键/滚轮缩放 · 中键倾斜')
+setMesh('网格：连接中…（首次几秒）')
 ;(async () => {
   try {
     const provider = await Cesium.I3SDataProvider.fromUrl(SCENE)
     viewer.scene.primitives.add(provider)
-    setStatus('已连接 · 左键拖旋转 · 右键/滚轮缩放 · 中键倾斜')
-    flyTo(SPOTS[0], 1200)
+    // report the mesh's ACTUAL coverage, and fly to where the data really is
+    const ext = provider.extent
+    if (ext) {
+      const w = Cesium.Math.toDegrees(ext.west), s = Cesium.Math.toDegrees(ext.south)
+      const e = Cesium.Math.toDegrees(ext.east), n = Cesium.Math.toDegrees(ext.north)
+      const clon = (w + e) / 2, clat = (s + n) / 2
+      console.log('I3S extent (deg):', { w, s, e, n }, 'sublayers:', provider.sublayers?.length)
+      setMesh(`✅ 网格已连接 · 覆盖 ${w.toFixed(2)},${s.toFixed(2)} → ${e.toFixed(2)},${n.toFixed(2)}`)
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(clon, clat, 3500),
+        orientation: { heading: 0, pitch: Cesium.Math.toRadians(-40), roll: 0 }, duration: 3,
+      })
+    } else {
+      setMesh('✅ 网格已连接（无 extent 信息，尝试取景点）')
+      flyTo(SPOTS[3], 1500)   // Köln — most likely to be in the published set
+    }
   } catch (err) {
     console.error('I3S load failed:', err)
-    setStatus('❌ 加载失败：' + (err && err.message ? err.message : err))
+    setMesh('❌ 网格加载失败：' + (err && err.message ? err.message : err))
   }
 })()
