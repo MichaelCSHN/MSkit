@@ -134,6 +134,7 @@ export default function App() {
   const dvMarker = useRef(null)
   const dvRegionId = useRef(null)
   const regionRef = useRef(null)
+  const cruiseRef = useRef(null)
 
   const [ready, setReady] = useState(false)
   const [role, setRole] = useState('organizer')
@@ -155,6 +156,9 @@ export default function App() {
   const [regions, setRegions] = useState([])
   const [activeRegion, setActiveRegion] = useState(null)
   const [dvZoom, setDvZoom] = useState(18)
+  const [cruiseOn, setCruiseOn] = useState(false)
+  const [cruisePlaying, setCruisePlaying] = useState(false)
+  const [cruiseP, setCruiseP] = useState(0)
 
   // init map + data
   useEffect(() => {
@@ -389,6 +393,7 @@ export default function App() {
   // drone aerial view = interactive mini-map on the SR tile service (pan/zoom)
   useEffect(() => {
     if (!droneView) {
+      if (cruiseRef.current) stopCruise()
       if (dvMap.current) { dvMap.current.remove(); dvMap.current = null; dvMarker.current = null }
       return
     }
@@ -756,27 +761,107 @@ export default function App() {
     setMsg(`已预置隐藏目标：1 目标 + ${r.decoys} 疑似（搜索方不可见）`)
   }
 
+  // ---- auto-cruise the drone view along the sweep path (real-imagery "footage") ----
+  function pathFromSweep(sweep) {
+    const pts = []
+    const addLine = (coords) => { for (const c of coords) pts.push([c[0], c[1]]) }
+    const geom = (g) => {
+      if (!g) return
+      if (g.type === 'LineString') addLine(g.coordinates)
+      else if (g.type === 'MultiLineString') g.coordinates.forEach(addLine)
+    }
+    if (sweep?.type === 'FeatureCollection') sweep.features.forEach((f) => geom(f.geometry))
+    else if (sweep?.type === 'Feature') geom(sweep.geometry)
+    else geom(sweep)
+    return pts
+  }
+
+  function posAlong(c) {
+    const { path, cum, dist } = c
+    let i = 1
+    while (i < cum.length && cum[i] < dist) i++
+    if (i >= cum.length) return path[path.length - 1]
+    const seg = cum[i] - cum[i - 1] || 1
+    const t = (dist - cum[i - 1]) / seg
+    return [path[i - 1][0] + (path[i][0] - path[i - 1][0]) * t,
+      path[i - 1][1] + (path[i][1] - path[i - 1][1]) * t]
+  }
+
+  function cruiseStep(now) {
+    const c = cruiseRef.current
+    if (!c || !c.playing) return
+    if (dvMap.current) {
+      if (!c.inited) { dvMap.current.setZoom(19); c.inited = true }
+      const dt = Math.min(64, now - c.last)
+      c.dist = Math.min(c.total, c.dist + c.total * (dt / c.dur))
+      const p = posAlong(c)
+      dvMap.current.setCenter(p)
+      if (dvMarker.current) dvMarker.current.setLngLat(p)
+      setCruiseP(c.dist / c.total)
+      if (c.dist >= c.total) {
+        c.playing = false
+        setCruisePlaying(false)
+        if (c.endFocus) setDroneView(c.endFocus)   // settle on best candidate at the end
+        return
+      }
+    }
+    c.last = now
+    c.raf = requestAnimationFrame(cruiseStep)
+  }
+
+  function startCruise(path, endFocus) {
+    stopCruise()
+    if (!path || path.length < 2) return
+    const cum = [0]
+    for (let i = 1; i < path.length; i++) {
+      const dx = path[i][0] - path[i - 1][0], dy = path[i][1] - path[i - 1][1]
+      cum.push(cum[i - 1] + Math.hypot(dx, dy))
+    }
+    cruiseRef.current = {
+      path, cum, total: cum[cum.length - 1] || 1, dist: 0, dur: 26000,
+      last: performance.now(), playing: true, inited: false, endFocus, raf: 0,
+    }
+    setCruiseOn(true); setCruisePlaying(true); setCruiseP(0)
+    setDroneView({ lon: path[0][0], lat: path[0][1], label: '沿航迹巡航' })
+    cruiseRef.current.raf = requestAnimationFrame(cruiseStep)
+  }
+
+  function toggleCruise() {
+    const c = cruiseRef.current
+    if (!c) return
+    if (c.dist >= c.total) { c.dist = 0; c.inited = false }   // finished -> replay
+    c.playing = !c.playing
+    c.last = performance.now()
+    setCruisePlaying(c.playing)
+    if (c.playing) c.raf = requestAnimationFrame(cruiseStep)   // restart the loop
+  }
+
+  function stopCruise() {
+    const c = cruiseRef.current
+    if (c && c.raf) cancelAnimationFrame(c.raf)
+    cruiseRef.current = null
+    setCruiseOn(false); setCruisePlaying(false)
+  }
+
   async function doDroneSweep() {
     const r = await api.droneSweep(actId.current, altitude)
     map.current.getSource('sweep').setData(r.sweep)
     await load(roleRef.current)
-    // open a simulated drone aerial view of the most salient candidate
+    // fly the drone view ALONG the sweep path over the real imagery ("footage"),
+    // then settle on the most salient candidate
     const s = await api.state(actId.current, 'organizer')
     const feats = [...s.detections.features].sort(
       (a, b) => (b.properties.priority || 0) - (a.properties.priority || 0))
+    let endFocus = null
     if (feats.length) {
       const f = feats[0]
-      setDroneView({ lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
-        label: `候选 #${f.properties.id} · ${bandOf(f.properties.priority)}` })
-    } else {
-      const sz = s.zones.features.find((z) => z.properties.kind === 'search')
-      if (sz) {
-        const ring = sz.geometry.coordinates[0]
-        setDroneView({ lon: ring.reduce((a, p) => a + p[0], 0) / ring.length,
-          lat: ring.reduce((a, p) => a + p[1], 0) / ring.length, label: '搜索区' })
-      }
+      endFocus = { lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
+        label: `候选 #${f.properties.id} · ${bandOf(f.properties.priority)}` }
     }
-    setMsg(`无人机拉网：足迹 ${r.footprint_m}m · 覆盖 ${(r.coverage_ratio * 100).toFixed(0)}% · 检出候选 ${r.detected}`)
+    const path = pathFromSweep(r.sweep)
+    if (path.length >= 2) startCruise(path, endFocus)
+    else if (endFocus) setDroneView(endFocus)
+    setMsg(`无人机拉网：足迹 ${r.footprint_m}m · 覆盖 ${(r.coverage_ratio * 100).toFixed(0)}% · 检出候选 ${r.detected} · 沿航迹巡航中`)
   }
 
   async function doRoutePriority() {
@@ -1034,9 +1119,19 @@ export default function App() {
         <div className="drone-view">
           <div className="dv-head">
             <span>🚁 无人机视角 · {droneView.label}</span>
-            <button onClick={() => setDroneView(null)} title="关闭">×</button>
+            <button onClick={() => { stopCruise(); setDroneView(null) }} title="关闭">×</button>
           </div>
           <div ref={dvMapEl} className="dv-map" />
+          {cruiseOn && (
+            <div className="dv-cruise">
+              <button onClick={toggleCruise} title={cruisePlaying ? '暂停' : (cruiseP >= 1 ? '重播' : '继续')}>
+                {cruisePlaying ? '⏸' : (cruiseP >= 1 ? '↻' : '▶')}
+              </button>
+              <div className="dv-prog"><div style={{ width: `${Math.round(cruiseP * 100)}%` }} /></div>
+              <span>{Math.round(cruiseP * 100)}%</span>
+              <button onClick={stopCruise} title="停止巡航">⏹</button>
+            </div>
+          )}
           <div className="dv-cap">{droneView.lat.toFixed(5)}, {droneView.lon.toFixed(5)} · z{dvZoom.toFixed(1)} · {activeRegion
             ? `真实正射 ${activeRegion.src || 'OAM'} ${Math.round(activeRegion.gsd * 100)}cm(至 z${activeRegion.maxzoom || 22})·滚轮放大`
             : '卫星超分(Real-ESRGAN)·滚轮缩放·模拟影像'}</div>
