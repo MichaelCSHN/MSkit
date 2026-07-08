@@ -54,6 +54,7 @@ export const api = {
     return j(`${BASE}/activities/${id}/tracks`, { method: 'POST', body: fd })
   },
   reportUrl: (id) => `${BASE}/activities/${id}/report.html`,
+  hiresRegions: () => j(`${BASE}/hires-regions`),
 
   // --- SAR (search & rescue) ---
   sarReset: (center) => j(`${BASE}/demo/sar`, {

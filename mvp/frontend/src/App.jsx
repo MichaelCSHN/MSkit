@@ -132,6 +132,8 @@ export default function App() {
   const dvMap = useRef(null)
   const dvMapEl = useRef(null)
   const dvMarker = useRef(null)
+  const dvRegionId = useRef(null)
+  const regionRef = useRef(null)
 
   const [ready, setReady] = useState(false)
   const [role, setRole] = useState('organizer')
@@ -150,6 +152,8 @@ export default function App() {
   const [decoys, setDecoys] = useState(4)
   const [altitude, setAltitude] = useState(90)
   const [sarStat, setSarStat] = useState(null)
+  const [regions, setRegions] = useState([])
+  const [activeRegion, setActiveRegion] = useState(null)
 
   // init map + data
   useEffect(() => {
@@ -327,6 +331,7 @@ export default function App() {
       // load activity + initial state; auto-retry until the backend is reachable
       const bootstrap = async () => {
         try {
+          try { setRegions(await api.hiresRegions()) } catch { /* optional */ }
           const acts = await api.activities()
           if (!acts.length) { setMsg('后端无活动，请点“重置演示”或检查播种'); return }
           const a = acts[0]
@@ -355,31 +360,38 @@ export default function App() {
       return
     }
     const center = [droneView.lon, droneView.lat]
-    if (dvMap.current) {
-      dvMap.current.jumpTo({ center, zoom: 18 })
+    // real OAM orthophoto when a high-res region is active, else satellite super-res
+    const rg = regionRef.current
+    const tiles = rg ? rg.tms : `${window.location.origin}/api/sr-tiles/{z}/{x}/{y}.jpg?v=5`
+    const maxz = rg ? (rg.maxzoom || 22) : 19
+    const startZoom = rg ? 20 : 18
+    const rgId = rg ? rg.id : null
+    if (dvMap.current && dvRegionId.current === rgId) {
+      dvMap.current.jumpTo({ center, zoom: startZoom })
       if (dvMarker.current) dvMarker.current.setLngLat(center)
       return
     }
+    if (dvMap.current) { dvMap.current.remove(); dvMap.current = null; dvMarker.current = null }
     if (!dvMapEl.current) return
+    dvRegionId.current = rgId
     const mm = new maplibregl.Map({
       container: dvMapEl.current,
       style: {
         version: 8,
         sources: {
           sr: {
-            type: 'raster',
-            tiles: [`${window.location.origin}/api/sr-tiles/{z}/{x}/{y}.jpg?v=5`],
-            tileSize: 256, minzoom: 14, maxzoom: 19,
+            type: 'raster', tiles: [tiles],
+            tileSize: 256, minzoom: 14, maxzoom: maxz,
           },
         },
         layers: [{ id: 'sr', type: 'raster', source: 'sr' }],
       },
-      center, zoom: 18, minZoom: 15, maxZoom: 19, attributionControl: false,
+      center, zoom: startZoom, minZoom: 15, maxZoom: maxz, attributionControl: false,
     })
     dvMap.current = mm
     mm.on('load', () => mm.resize())
     dvMarker.current = new maplibregl.Marker({ color: '#dc2626' }).setLngLat(center).addTo(mm)
-  }, [droneView])
+  }, [droneView, activeRegion])
 
   async function load(r) {
     const id = actId.current
@@ -540,6 +552,46 @@ export default function App() {
     if (!m) return
     m.setLayoutProperty('osm', 'visibility', b === 'street' ? 'visible' : 'none')
     m.setLayoutProperty('sat', 'visibility', b === 'sat' ? 'visible' : 'none')
+  }
+
+  // overlay a high-res OAM raster layer for the active region (below overlays)
+  function setHiresLayer(region) {
+    const m = map.current
+    if (!m) return
+    if (m.getLayer('hires-layer')) m.removeLayer('hires-layer')
+    if (m.getSource('hires')) m.removeSource('hires')
+    if (!region) return
+    m.addSource('hires', {
+      type: 'raster', tiles: [region.tms], tileSize: 256,
+      minzoom: 12, maxzoom: region.maxzoom || 22,
+      attribution: `© ${region.provider} · ${region.license}`,
+    })
+    // insert beneath the first overlay so zones/detections stay on top
+    m.addLayer({ id: 'hires-layer', type: 'raster', source: 'hires' }, 'zone-fill')
+  }
+
+  async function selectRegion(region) {
+    if (!region) { clearRegion(); return }
+    regionRef.current = region
+    setActiveRegion(region)
+    const [lon, lat] = region.center
+    setMsg(`切到高清区「${region.name}」…`)
+    setHiresLayer(region)
+    // constrain the activity area to where the real imagery is
+    const center = { lat: +lat.toFixed(6), lon: +lon.toFixed(6) }
+    if (scenario === 'sar') await api.sarReset(center)
+    else await api.reset(center)
+    await reloadActivity()
+    setHiresLayer(region)           // re-add (reloadActivity may reset style order)
+    map.current.jumpTo({ center: [lon, lat], zoom: 17 })
+    setMsg(`高清区「${region.name}」· ${Math.round(region.gsd * 100)}cm · ${region.license}（无人机画面为真实正射影像）`)
+  }
+
+  function clearRegion() {
+    regionRef.current = null
+    setActiveRegion(null)
+    setHiresLayer(null)
+    setMsg('已关闭高清区，无人机画面恢复卫星超分')
   }
 
   function toggle3D() {
@@ -753,6 +805,19 @@ export default function App() {
           <button className="iconbtn" disabled={!ready} onClick={locateHere} title="设为起点：以当前地图视图中心为起始区域"><Ico src="/icons/locate.png" emoji="📍" /></button>
         </div>
 
+        {regions.length > 0 && (
+          <div className="hires">
+            <span title="选择一块真实无人机高清正射影像区域；活动区将约束到此处，无人机画面用真实影像">🛩️ 高清区</span>
+            <select value={activeRegion?.id || ''} disabled={!ready}
+              onChange={(e) => selectRegion(regions.find((r) => r.id === e.target.value))}>
+              <option value="">关闭（用普通底图 / 超分）</option>
+              {regions.map((r) => (
+                <option key={r.id} value={r.id}>{r.name} · {Math.round(r.gsd * 100)}cm</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {guide && showGuide && (
           <div className="guide">
             <div className="guide-head">
@@ -914,7 +979,9 @@ export default function App() {
             <button onClick={() => setDroneView(null)} title="关闭">×</button>
           </div>
           <div ref={dvMapEl} className="dv-map" />
-          <div className="dv-cap">{droneView.lat.toFixed(5)}, {droneView.lon.toFixed(5)} · 卫星超分(Real-ESRGAN)·滚轮缩放·模拟非真实无人机影像</div>
+          <div className="dv-cap">{droneView.lat.toFixed(5)}, {droneView.lon.toFixed(5)} · {activeRegion
+            ? `真实无人机正射影像 (OAM · ${Math.round(activeRegion.gsd * 100)}cm · ${activeRegion.license})·滚轮缩放`
+            : '卫星超分(Real-ESRGAN)·滚轮缩放·模拟非真实无人机影像'}</div>
         </div>
       )}
     </div>

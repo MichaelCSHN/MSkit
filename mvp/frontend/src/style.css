@@ -67,6 +67,14 @@ body { font-family: system-ui, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
 .basemap .iconbtn.active { background: #dbeafe; border-color: #0369a1; box-shadow: 0 0 0 1px #0369a1 inset; }
 .basemap .iconbtn:disabled { opacity: 0.5; cursor: default; }
 
+.hires { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; font-size: 12px; color: #555; }
+.hires span { white-space: nowrap; }
+.hires select {
+  flex: 1; padding: 5px 6px; border: 1px solid #0369a1; border-radius: 6px;
+  background: #f0f9ff; color: #0369a1; font-size: 12px; cursor: pointer;
+}
+.hires select:disabled { opacity: 0.5; cursor: default; }
+
 .draw { border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; margin-bottom: 10px; }
 .draw-head { font-size: 12px; color: #4f46e5; font-weight: 600; margin-bottom: 6px; }
 .draw-kinds { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
